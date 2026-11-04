@@ -12,6 +12,7 @@
   --blur:blur(16px) saturate(150%);
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}  /* que "hidden" gane aunque la clase ponga display:flex */
 html{scrollbar-color:rgba(148,178,255,.25) transparent}
 body{margin:0;color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:15px;line-height:1.55;background:var(--bg)}
 /* Fondo en un pseudo-elemento FIJO (no background-attachment:fixed — eso rompe
@@ -71,7 +72,9 @@ ul.tight{margin:6px 0 4px;padding-left:20px} ul.tight li{margin:5px 0}
 .guide label.btn,.opt-card label.btn,.settings label.btn{display:inline-block;width:auto;margin-top:6px}
 .seg button{white-space:nowrap}
 .guide .btn.big{margin:8px 0 10px}
-.modal-card .frow label{width:auto;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.modal-card .frow label{width:150px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.modal-card .frow .seg{flex:1}
+.modal-card.wide{max-width:560px}
 .bank-tips{display:flex;flex-direction:column;gap:8px;margin:14px 0 16px}
 .bank-tips div{display:grid;grid-template-columns:96px 1fr;gap:10px;padding:10px 13px;border-radius:12px;background:var(--glass-2);border:1px solid var(--line);font-size:13.5px}
 .bank-tips span{color:var(--mut)}
@@ -1047,42 +1050,129 @@ function csvSplit(line, sep) {
   out.push(cur.trim());
   return out;
 }
-// Detecta separador, encabezado, y devuelve columnas para que la UI pida el mapeo.
+/* ---------------------------------------------- fechas en cualquier formato */
+// Bancos distintos escriben la fecha distinto. Se aceptan:
+//   03/07/2026 · 3-7-26 (día/mes, lo normal en CR) · 07/03/2026 (mes/día, EEUU: fmt 'mdy')
+//   2026-07-03 (ISO) · "3 jul 2026" · "03-Jul-2026" · "3 de julio de 2026" · "Jul 3, 2026"
+// La hora, si viene, se ignora. Devuelve Date o null (fecha imposible = null).
+var MES = { ene: 1, jan: 1, feb: 2, mar: 3, abr: 4, apr: 4, may: 5, jun: 6, jul: 7, ago: 8, aug: 8,
+            sep: 9, set: 9, oct: 10, nov: 11, dic: 12, dec: 12 };
+function mkDate(y, mo, d) {
+  if (y < 100) y += 2000;
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  var dt = new Date(y, mo - 1, d);
+  return dt.getMonth() === mo - 1 ? dt : null;   // 31/02 no existe
+}
+function parseDateFlex(s, fmt) {
+  s = String(s == null ? '' : s).trim(); if (!s) return null;
+  var m = s.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})(?:$|[\sT])/);
+  if (m) return mkDate(+m[1], +m[2], +m[3]);
+  m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})(?:$|[\sT])/);
+  if (m) return fmt === 'mdy' ? mkDate(+m[3], +m[1], +m[2]) : mkDate(+m[3], +m[2], +m[1]);
+  var n = norm(s).replace(/\bde(l)?\b/g, ' ').replace(/[,.\-\/]/g, ' ').replace(/\s+/g, ' ').trim();
+  m = n.match(/^(\d{1,2}) ([a-z]{3,}) (\d{2,4})(?:$| )/);
+  if (m && MES[m[2].slice(0, 3)]) return mkDate(+m[3], MES[m[2].slice(0, 3)], +m[1]);
+  m = n.match(/^([a-z]{3,}) (\d{1,2}) (\d{2,4})(?:$| )/);
+  if (m && MES[m[1].slice(0, 3)]) return mkDate(+m[3], MES[m[1].slice(0, 3)], +m[2]);
+  return null;
+}
+// ¿Día/mes o mes/día? Mirando todas las fechas numéricas de la columna: un primer número
+// >12 prueba día/mes; un segundo >12 prueba mes/día. Si nada lo prueba → ambiguo (se pregunta).
+function guessDateFmt(values) {
+  var dmy = false, mdy = false, numeric = 0;
+  values.forEach(function (v) {
+    var m = String(v == null ? '' : v).trim().match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.]\d{2,4}/);
+    if (!m) return; numeric++;
+    if (+m[1] > 12) dmy = true;
+    if (+m[2] > 12) mdy = true;
+  });
+  if (!numeric) return { fmt: 'dmy', ambiguous: false, numeric: 0 };
+  if (dmy && !mdy) return { fmt: 'dmy', ambiguous: false, numeric: numeric };
+  if (mdy && !dmy) return { fmt: 'mdy', ambiguous: false, numeric: numeric };
+  return { fmt: 'dmy', ambiguous: true, numeric: numeric };
+}
+function looksAmount(x) { x = String(x == null ? '' : x).trim(); return x !== '' && /^[-+(]?\s*[₡$€]?\s*[\d.,\s]+\)?$/.test(x) && /\d/.test(x); }
+
+// Detecta separador y la fila de ENCABEZADO (muchos bancos ponen títulos/datos de la
+// cuenta arriba). Devuelve {sep, header, headerIdx, sample, lines}.
 function sniffCSV(text) {
   var lines = String(text).split(/\r?\n/).filter(function (s) { return s.trim(); });
-  if (!lines.length) return { sep: ',', header: [], sample: [] };
-  var seps = [',', ';', '\t', '|'];
-  var best = ',', bestN = 0;
-  seps.forEach(function (s) { var n = csvSplit(lines[0], s).length; if (n > bestN) { bestN = n; best = s; } });
-  var header = csvSplit(lines[0], best);
-  var sample = lines.slice(1, 6).map(function (l) { return csvSplit(l, best); });
-  return { sep: best, header: header, sample: sample, lines: lines };
+  if (!lines.length) return { sep: ',', header: [], headerIdx: 0, sample: [], lines: [] };
+  var head = lines.slice(0, 40), best = ',', bestScore = -1;
+  // Separador: el que da la MISMA cantidad (>1) de columnas en más líneas.
+  [',', ';', '\t', '|'].forEach(function (sp) {
+    var counts = {}, top = 0, topN = 0;
+    head.forEach(function (l) { var n = csvSplit(l, sp).length; if (n > 1) counts[n] = (counts[n] || 0) + 1; });
+    for (var k in counts) if (counts[k] > top || (counts[k] === top && +k > topN)) { top = counts[k]; topN = +k; }
+    if (top * 100 + topN > bestScore) { bestScore = top * 100 + topN; best = sp; }
+  });
+  // Encabezado: primera línea con ≥2 columnas de texto y ninguna fecha ni monto.
+  var hi = 0;
+  for (var i = 0; i < head.length; i++) {
+    var c = csvSplit(head[i], best);
+    if (c.filter(function (x) { return x; }).length < 2) continue;
+    var hasText = c.some(function (x) { return /[a-záéíóúñ]/i.test(x); });
+    var hasData = c.some(function (x) { return parseDateFlex(x) || looksAmount(x); });
+    if (hasText && !hasData) { hi = i; break; }
+  }
+  return { sep: best, header: csvSplit(lines[hi], best), headerIdx: hi,
+           sample: lines.slice(hi + 1, hi + 6).map(function (l) { return csvSplit(l, best); }), lines: lines };
 }
-// map = {dateCol, descCol, amountCol, debitCol, creditCol, dateFmt, sign} — de la UI o recordado.
+// Propone qué columna es cada cosa (por nombre del encabezado y, si no, por contenido).
+function guessColumns(header, rows) {
+  var g = { dateCol: -1, descCol: -1, amountCol: -1, debitCol: -1, creditCol: -1 };
+  header.map(norm).forEach(function (h, i) {
+    if (g.dateCol < 0 && /fecha|date/.test(h)) g.dateCol = i;
+    else if (/saldo|balance/.test(h)) return;
+    else if (g.debitCol < 0 && /debito|cargo|retiro|salida|egreso|debit|withdraw/.test(h)) g.debitCol = i;
+    else if (g.creditCol < 0 && /credito|abono|deposito|entrada|credit|deposit/.test(h)) g.creditCol = i;
+    else if (g.amountCol < 0 && /monto|importe|amount|valor/.test(h)) g.amountCol = i;
+    else if (g.descCol < 0 && /descrip|detalle|concepto|comercio|referencia|movimiento|description|merchant|memo|narrat/.test(h)) g.descCol = i;
+  });
+  var cols = header.length, score = function (fn) { var best = -1, bn = 0; for (var c = 0; c < cols; c++) { var n = rows.filter(function (r) { return fn(r[c]); }).length; if (n > bn) { bn = n; best = c; } } return best; };
+  if (g.dateCol < 0) g.dateCol = score(function (v) { return !!parseDateFlex(v); });
+  if (g.descCol < 0) g.descCol = score(function (v) { return /[a-z]{3}/i.test(String(v || '')) && !parseDateFlex(v); });
+  g.mode = (g.debitCol >= 0 && g.creditCol >= 0 && g.amountCol < 0) ? 'two' : 'one';
+  if (g.mode === 'one' && g.amountCol < 0) g.amountCol = g.debitCol >= 0 ? g.debitCol : score(function (v) { return looksAmount(v) && !parseDateFlex(v); });
+  // Signo: si la columna trae montos negativos, casi siempre los negativos son gastos.
+  // Si todos son positivos (ej. estados de tarjeta) lo usual es positivo = cargo.
+  var neg = g.amountCol >= 0 && rows.some(function (r) { var v = moneySigned(r[g.amountCol]); return v != null && v < 0; });
+  g.sign = neg ? 'posIngreso' : 'posGasto';
+  return g;
+}
+// map = {dateCol, descCol, dateFmt, bankName, currency} + UNA columna {amountCol, sign}
+// o DOS columnas {debitCol, creditCol}. Exactitud: cada fila que parece movimiento
+// (tiene fecha o monto) se importa o se REPORTA con el motivo; nunca se pierde en silencio.
 function parseGenericCSV(text, map) {
-  var sn = sniffCSV(text);
-  var sep = sn.sep, lines = sn.lines;
+  var sn = sniffCSV(text), sep = sn.sep, lines = sn.lines;
+  var fmt = map.dateFmt || 'dmy';
+  var two = map.debitCol != null && map.creditCol != null && map.debitCol >= 0 && map.creditCol >= 0;
   var rows = [], candidates = 0, skippedRows = [];
-  for (var i = 1; i < lines.length; i++) {
+  for (var i = sn.headerIdx + 1; i < lines.length; i++) {
     var c = csvSplit(lines[i], sep);
-    var draw = c[map.dateCol]; var d = pdate(draw);
-    if (!d) { continue; }
-    candidates++;
-    var desc = (c[map.descCol] || '').trim();
-    var amount, tipo, system = false;
-    if (map.debitCol != null && map.creditCol != null) {
+    var draw = c[map.dateCol], d = parseDateFlex(draw, fmt);
+    var desc = String(c[map.descCol] == null ? '' : c[map.descCol]).trim();
+    var amount = null, tipo = null, zero = false, rawAmt;
+    if (two) {
       var deb = money(c[map.debitCol]), cre = money(c[map.creditCol]);
-      if (cre != null) { amount = cre; tipo = 'Ingreso'; }
-      else if (deb != null) { amount = deb; tipo = 'Gasto'; }
-      else { skippedRows.push({ fecha: fmtISO(d), desc: desc.slice(0, 60) }); continue; }
+      rawAmt = (c[map.debitCol] || '') + (c[map.creditCol] || '');
+      if (cre) { amount = Math.abs(cre); tipo = 'Ingreso'; }
+      else if (deb) { amount = Math.abs(deb); tipo = 'Gasto'; }
+      else if (cre === 0 || deb === 0) zero = true;
     } else {
-      var v = moneySigned(c[map.amountCol]);
-      if (v == null) { skippedRows.push({ fecha: fmtISO(d), desc: desc.slice(0, 60) }); continue; }
-      // Convención de signo elegida en el mapeo: 'posGasto' (positivo=gasto) o 'posIngreso'.
-      var isExpense = (map.sign === 'posGasto') ? v > 0 : v < 0;
-      amount = Math.abs(v); tipo = isExpense ? 'Gasto' : 'Ingreso';
+      rawAmt = c[map.amountCol];
+      var v = moneySigned(rawAmt);
+      if (v) { amount = Math.abs(v); tipo = ((map.sign === 'posGasto') ? v > 0 : v < 0) ? 'Gasto' : 'Ingreso'; }
+      else if (v === 0) zero = true;
     }
-    rows.push({ fecha: fmtISO(d), desc: cleanMerchant(desc), raw: desc, amount: amount, metodo: '', source: (map.bankName || 'Banco'), bank: (map.bankName || 'Banco'), pais: '', doc: (map.docCol != null ? (c[map.docCol] || '') : ''), tipo: tipo, system: system });
+    // No es un movimiento: línea de título, total ("Total", "Saldo…") o monto cero.
+    if (!d && amount == null) continue;
+    if (!d && /total|saldo|balance|resumen/i.test(String(draw || '') + ' ' + desc)) continue;
+    if (zero && amount == null) continue;
+    candidates++;
+    if (!d) { skippedRows.push({ desc: (desc || lines[i]).slice(0, 60), why: 'fecha que no entiendo: "' + String(draw == null ? '' : draw).slice(0, 24) + '"' }); continue; }
+    if (amount == null) { skippedRows.push({ fecha: fmtISO(d), desc: desc.slice(0, 60), why: 'sin monto legible' + (rawAmt ? ': "' + String(rawAmt).slice(0, 20) + '"' : '') }); continue; }
+    rows.push({ fecha: fmtISO(d), desc: cleanMerchant(desc), raw: desc, amount: amount, metodo: '', source: (map.bankName || 'Banco'), bank: (map.bankName || 'Banco'), pais: '', doc: (map.docCol != null ? (c[map.docCol] || '') : ''), tipo: tipo, system: false });
   }
   var det = detectCurrency(text);
   return { rows: rows, currency: map.currency || det.code || 'CRC', conf: det.conf, kind: 'genérico', bank: (map.bankName || 'Banco'),
@@ -1096,7 +1186,8 @@ var parsers = {
   parseCardConcepto: parseCardConcepto, parseCardLine: parseCardLine, parseCardPage: parseCardPage, parseBCRCardPDF: parseBCRCardPDF,
   parseAccountRow: parseAccountRow, parseBCRAccountHTML: parseBCRAccountHTML, findCol: findCol,
   bacIsJunk: bacIsJunk, bacRow: bacRow, parseBACCSV: parseBACCSV, parseBACPDFText: parseBACPDFText,
-  csvSplit: csvSplit, sniffCSV: sniffCSV, parseGenericCSV: parseGenericCSV, csvSignature: csvSignature
+  csvSplit: csvSplit, sniffCSV: sniffCSV, parseGenericCSV: parseGenericCSV, csvSignature: csvSignature,
+  parseDateFlex: parseDateFlex, guessDateFmt: guessDateFmt, guessColumns: guessColumns, looksAmount: looksAmount
 };
 if (typeof module !== 'undefined' && module.exports) module.exports = parsers;
 root.FinParsers = parsers;
@@ -1955,8 +2046,37 @@ function routeCSV(text, filename, db) {
 function routeHTML(text, filename, DOMParserImpl, db) {
   var bank = P.detectBank(text, filename);
   if (bank === 'BCR') return tag(P.parseBCRAccountHTML(text, DOMParserImpl), filename);
-  // tabla HTML de banco desconocido → intentar extraer como texto y mapear
-  return tag(genericOrMapped(text, filename, db), filename);
+  // Tabla HTML de otro banco (muchos exportan ".xls" que en realidad es HTML): se pasa
+  // a texto separado por tabulaciones y sigue el camino genérico (preguntar columnas).
+  var tsv = tableToTSV(text, DOMParserImpl);
+  if (!tsv) return errScan(filename, 'No encontré una tabla de movimientos en este archivo. Bajá de tu banco el CSV y subí ese.');
+  return routeCSV(tsv, filename, db);
+}
+function cellClean(v) { return String(v == null ? '' : v).replace(/[\t\r\n]+/g, ' ').trim(); }
+// Tabla HTML más grande del documento → texto con tabulaciones (o null).
+function tableToTSV(text, DOMParserImpl) {
+  if (!DOMParserImpl) return null;
+  var doc = new DOMParserImpl().parseFromString(text, 'text/html');
+  var best = null, bestN = 0;
+  [].slice.call(doc.querySelectorAll('table')).forEach(function (t) { var n = t.querySelectorAll('tr').length; if (n > bestN) { bestN = n; best = t; } });
+  if (!best || bestN < 2) return null;
+  return [].slice.call(best.querySelectorAll('tr')).map(function (tr) {
+    return [].slice.call(tr.querySelectorAll('td,th')).map(function (c) { return cellClean(c.textContent); }).join('\t');
+  }).join('\n');
+}
+// Hojas de un .xlsx de otro banco → texto con tabulaciones de la hoja con más filas. Las
+// fechas que Excel guarda como número se pasan a dd/mm/aaaa en columnas titulada "fecha".
+function sheetToTSV(rows, X) {
+  var dateCols = {};
+  rows.slice(0, 25).forEach(function (r) { (r || []).forEach(function (v, i) { if (/fecha|date/i.test(String(v))) dateCols[i] = 1; }); });
+  return rows.map(function (r) {
+    return (r || []).map(function (v, i) {
+      if (typeof v === 'number' && dateCols[i] && v > 20000 && v < 80000 && X) {
+        var d = X.serialToDate(v); return d ? String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear() : String(v);
+      }
+      return cellClean(v);
+    }).join('\t');
+  }).join('\n');
 }
 function routePDFText(text, filename, buf, pdfjsLib, db) {
   var bank = P.detectBank(text, filename);
@@ -1964,9 +2084,9 @@ function routePDFText(text, filename, buf, pdfjsLib, db) {
   // usa coordenadas. Es async: el nombre se pone sobre el RESULTADO, no sobre la promesa
   // (antes las auditorías de tarjeta quedaban sin nombre y se pisaban entre sí en Cuadre).
   if (bank === 'BCR') return Promise.resolve(P.parseBCRCardPDF(buf, pdfjsLib)).then(function (s) { return tag(s, filename); });
-  // PDF desconocido: sin columnas fiables → reportar para revisión, no inventar
-  return tag({ rows: [], currency: 'CRC', kind: 'desconocido', bank: 'GENERICO',
-    diag: { candidates: 0, parsed: 0, skipped: 0, note: 'PDF no reconocido: exportá el CSV del banco.' } }, filename);
+  // PDF desconocido: sin columnas fiables → no se inventa; se REPORTA (antes se ignoraba
+  // en silencio si venía junto con otros archivos).
+  return errScan(filename, 'No reconozco este PDF (leo los PDF del BCR y del BAC). Bajá de tu banco el archivo CSV o Excel de movimientos y subí ese.');
 }
 // CSV genérico: usa mapeo recordado si existe; si no, marca para pedir mapeo a la persona.
 function genericOrMapped(text, filename, db) {
@@ -1974,10 +2094,11 @@ function genericOrMapped(text, filename, db) {
   var map = (db && db.bankMaps && db.bankMaps[sig]) || null;
   if (map) return P.parseGenericCSV(text, map);
   var sn = P.sniffCSV(text);
-  var dataLines = Math.max(0, (sn.lines ? sn.lines.length : 1) - 1);
+  var dataLines = Math.max(0, (sn.lines ? sn.lines.length : 1) - (sn.headerIdx || 0) - 1);
+  if (!sn.header.length || sn.header.length < 2) return errScan(filename, 'No pude leer columnas en este archivo. Bajá de tu banco el CSV de movimientos y subí ese.');
   return { rows: [], currency: 'CRC', kind: 'generico', bank: 'GENERICO', needsMap: true, signature: sig,
     diag: { candidates: dataLines, parsed: 0, skipped: 0, note: 'Formato nuevo: mapeá las columnas una vez y lo recuerdo.' },
-    _sniff: sn };
+    _sniff: sn, _text: text };
 }
 function tag(scan, filename) { scan.name = filename; return scan; }
 
@@ -1999,9 +2120,10 @@ function importOne(file, db, deps) {
   }
   if (/\.(xls|xlsx|html?)$/.test(low)) {
     return readAsText(file).then(function (text) {
-      // Un .xlsx de verdad es un ZIP ("PK…"): no es un estado de cuenta (los .xls del BCR
-      // son tablas HTML). Probablemente es el Excel de historial → decir dónde va.
-      if (/^PK/.test(text)) return errScan(name, 'Este Excel no es un estado de cuenta del banco. Si es donde anotabas tus gastos con su categoría, cargalo con "Cargar mi Excel" (en Ajustes → Historial en Excel).');
+      // Un .xlsx de verdad es un ZIP ("PK…") (los .xls del BCR son tablas HTML).
+      if (/^PK/.test(text)) return routeXlsx(file, name, db);
+      // .xls viejo binario de Excel: no se puede leer sin librería → decir cómo convertirlo.
+      if (/\u0000/.test(text.slice(0, 512)) || /^\uFFFD/.test(text)) return errScan(name, 'Es un Excel viejo (.xls). Abrilo en Excel y guardalo como .xlsx o CSV, y subí ese.');
       return routeHTML(text, name, deps.DOMParser, db);
     })
       .catch(function (e) { return errScan(name, 'No se pudo leer la tabla: ' + (e.message || e)); });
@@ -2010,13 +2132,28 @@ function importOne(file, db, deps) {
   return readAsText(file).then(function (text) { return routeCSV(text, name, db); })
     .catch(function (e) { return errScan(name, 'No se pudo leer el archivo: ' + (e.message || e)); });
 }
+// .xlsx: si trae Fecha + Categoría + Monto es el historial de la persona (va por "Cargar
+// mi Excel"); si no, se trata como estado de cuenta de otro banco (preguntar columnas).
+function routeXlsx(file, name, db) {
+  var X = root.FinXlsx, H = root.FinHist;
+  if (!X || !X.inflate) return errScan(name, 'Este navegador no puede leer Excel. Usá Chrome o Edge, o bajá el CSV de tu banco.');
+  return file.arrayBuffer().then(function (buf) { return X.readXlsx(buf, X.inflate); }).then(function (wb) {
+    if (H && wb.sheets.some(function (sh) { return H.findHeader(sh.rows); }))
+      return errScan(name, 'Este Excel tiene categorías: parece tu historial de gastos, no un estado de cuenta. Cargalo con "Cargar mi Excel" (en Ajustes → Historial en Excel).');
+    var best = null, bestN = 0;
+    wb.sheets.forEach(function (sh) { var n = sh.rows.filter(function (r) { return (r || []).filter(function (v) { return v !== '' && v != null; }).length >= 2; }).length; if (n > bestN) { bestN = n; best = sh; } });
+    if (!best) return errScan(name, 'Este Excel no tiene filas de movimientos.');
+    return routeCSV(sheetToTSV(best.rows, X), name, db);
+  }).catch(function (e) { return errScan(name, 'No pude leer el Excel: ' + (e.message || e)); });
+}
 function errScan(name, msg) {
   return { name: name, rows: [], currency: 'CRC', kind: 'error', bank: '', error: msg,
     diag: { candidates: 0, parsed: 0, skipped: 0, note: msg } };
 }
 
 var imp = { pdfToText: pdfToText, routeCSV: routeCSV, routeHTML: routeHTML, routePDFText: routePDFText,
-  genericOrMapped: genericOrMapped, importFiles: importFiles, importOne: importOne };
+  genericOrMapped: genericOrMapped, importFiles: importFiles, importOne: importOne,
+  tableToTSV: tableToTSV, sheetToTSV: sheetToTSV, errScan: errScan };
 if (typeof module !== 'undefined' && module.exports) module.exports = imp;
 root.FinImport = imp;
 
@@ -3399,50 +3536,114 @@ function renderCatEditor() {
 }
 
 /* ========================================================== IMPORTACIÓN =====*/
+// Flujo: leer todos los archivos → para cada archivo de un banco desconocido, preguntar
+// las columnas UNA vez (y recordarlas) → cargar → si algo no se pudo leer, mostrar un
+// resumen que hay que cerrar (no un aviso que se va solo). Nada se pierde en silencio.
 function onImport(ev) {
   var files = ev.target.files; if (!files || !files.length) return;
   toast('Leyendo ' + files.length + ' archivo(s)…');
   IMP.importFiles(files, DB, { pdfjsLib: window.pdfjsLib, DOMParser: window.DOMParser }).then(function (scans) {
     ev.target.value = '';
-    var needMap = scans.filter(function (s) { return s.needsMap; });
-    var errs = scans.filter(function (s) { return s.error; });
-    if (errs.length) errs.forEach(function (e) { toast(e.name + ': ' + e.error, 'err'); });
-    if (needMap.length) { return openMapper(needMap[0], scans); }
-    finishImport(scans);
+    resolveMaps(scans, 0, finishImport);
   }).catch(function (e) { toast('Error importando: ' + (e.message || e), 'err'); });
 }
+// Recorre los archivos que necesitan mapeo, de a uno. Si dos archivos son del mismo
+// banco, el mapeo del primero se reutiliza para el segundo sin volver a preguntar.
+function resolveMaps(scans, from, done) {
+  for (var i = from; i < scans.length; i++) {
+    var sc = scans[i];
+    if (!sc.needsMap) continue;
+    var known = DB.bankMaps[sc.signature];
+    if (known) { scans[i] = reparse(sc, known); scans[i]._mapped = true; continue; }
+    // n.º de este archivo entre los que traen formato nuevo (para "Archivo 2 de 3")
+    var all = scans.filter(function (x) { return x.needsMap || x._mapped; }), pos = all.indexOf(sc);
+    return openMapper(sc, pos, all.length, function (map) {
+      if (map) { DB.bankMaps[sc.signature] = map; scans[i] = reparse(sc, map); scans[i]._mapped = true; }
+      else scans[i] = IMP.errScan(sc.name, 'No se importó: cancelaste la pregunta de columnas.');
+      resolveMaps(scans, i + 1, done);
+    });
+  }
+  done(scans);
+}
+function reparse(sc, map) { var r = P.parseGenericCSV(sc._text, map); r.name = sc.name; return r; }
 function finishImport(scans) {
   var usable = scans.filter(function (s) { return s.rows && s.rows.length && !s.error; });
-  if (!usable.length) { toast('No se importó ninguna transacción. Revisá el formato.', 'err'); return; }
-  var res = withUndo(usable.map(function (x) { return x.name; }), function () { return E.commitScan(DB, usable); });
-  persist();
-  var warns = E.auditWarnings(res.audits, function (n) { return money(n); });
-  toast(res.added + ' nuevas · ' + res.fixed + ' corregidas' + (warns.length ? ' · revisá Cuadre' : ' · todo cuadra'), warns.length ? 'warn' : 'ok');
-  MK = S.latestMonth(DB); TAB = 'resumen'; renderDash();
+  var failed = scans.filter(function (s) { return !(s.rows && s.rows.length && !s.error); });
+  var res = usable.length ? withUndo(usable.map(function (x) { return x.name; }), function () { return E.commitScan(DB, usable); }) : null;
+  if (res) persist();
+  var warns = res ? E.auditWarnings(res.audits, function (n) { return money(n); }) : [];
+  if (res) { MK = S.latestMonth(DB); TAB = 'resumen'; renderDash(); }
+  if (!failed.length && !warns.length) { toast(res.added + ' nuevas · ' + res.fixed + ' corregidas · todo cuadra', 'ok'); return; }
+  openImportReport(usable, failed, warns, res);
 }
-// Mapeo de columnas para un banco/CSV desconocido (una sola vez; se recuerda).
-function openMapper(scan, allScans) {
-  var sn = scan._sniff, hdr = sn.header;
-  var colOpts = hdr.map(function (h, i) { return '<option value="' + i + '">' + esc(h || ('Columna ' + (i + 1))) + '</option>'; }).join('');
-  var m = el('<div class="modal"><div class="modal-card"><h3>Formato nuevo: ' + esc(scan.name) + '</h3>' +
-    '<p class="mut">No reconozco este banco todavía. Decime qué columna es cada cosa — lo recuerdo y no lo vuelvo a preguntar.</p>' +
-    '<div class="frow"><label>Fecha</label><select id="mDate">' + colOpts + '</select></div>' +
-    '<div class="frow"><label>Descripción</label><select id="mDesc">' + colOpts + '</select></div>' +
-    '<div class="frow"><label>Monto</label><select id="mAmt">' + colOpts + '</select></div>' +
-    '<div class="frow"><label>Signo</label><select id="mSign"><option value="posGasto">Positivo = gasto</option><option value="posIngreso">Positivo = ingreso</option></select></div>' +
-    '<div class="frow"><label>Nombre del banco</label><input id="mBank" placeholder="Mi banco"></div>' +
-    '<div class="modal-preview"><b>Muestra:</b><br>' + sn.sample.slice(0, 3).map(function (r) { return esc(r.join(' | ')); }).join('<br>') + '</div>' +
-    '<div class="btn-row"><button class="btn" id="mCancel">Cancelar</button><button class="btn primary" id="mOk">Guardar y leer</button></div>' +
+// Resumen que queda en pantalla hasta cerrarlo: qué entró, qué no y por qué.
+function openImportReport(usable, failed, warns, res) {
+  var m = el('<div class="modal"><div class="modal-card"><h3>Resultado de la importación</h3>' +
+    (res ? '<div class="ok-box">' + res.added + ' movimientos nuevos · ' + res.fixed + ' corregidos</div>' : '') +
+    (usable.length ? '<ul class="tight sm">' + usable.map(function (s) {
+      var d = s.diag || {};
+      return '<li>✓ <b>' + esc(s.name) + '</b>: ' + s.rows.length + ' movimiento(s)' + (d.skipped ? ' · <span class="out">' + d.skipped + ' fila(s) no se pudieron leer</span>' : '') +
+        (d.skippedRows && d.skippedRows.length ? '<br><span class="mut">' + d.skippedRows.slice(0, 4).map(function (r) { return esc((r.fecha ? r.fecha + ' ' : '') + (r.desc || '') + (r.why ? ' — ' + r.why : '')); }).join('<br>') + (d.skippedRows.length > 4 ? '<br>…' : '') + '</span>' : '') + '</li>';
+    }).join('') + '</ul>' : '') +
+    (failed.length ? '<div class="warn-box"><b>No se pudo leer:</b><br>' + failed.map(function (s) { return '<b>' + esc(s.name) + '</b>: ' + esc(s.error || (s.diag && s.diag.note) || 'no encontré movimientos en este archivo'); }).join('<br>') + '</div>' : '') +
+    (warns.length ? '<div class="warn-box">' + warns.map(esc).join('<br>') + '</div>' : '') +
+    '<p class="mut sm">Todo lo importado se puede revisar en la pestaña <b>Cuadre</b>' + (res ? ' y deshacer con "Deshacer importación"' : '') + '.</p>' +
+    '<div class="btn-row"><button class="btn primary" id="irOk">Entendido</button></div></div></div>');
+  document.body.appendChild(m);
+  $('irOk').onclick = function () { m.remove(); };
+}
+// Pregunta de columnas para un banco desconocido (una sola vez; se recuerda). Propone
+// las columnas, pregunta día/mes vs mes/día si las fechas no lo dejan claro, admite
+// débito y crédito en columnas separadas, y muestra EN VIVO cómo quedarían las filas.
+function openMapper(scan, idx, total, cb) {
+  var sn = scan._sniff, hdr = sn.header, data = sn.lines.slice(sn.headerIdx + 1, sn.headerIdx + 200).map(function (l) { return P.csvSplit(l, sn.sep); });
+  var g = P.guessColumns(hdr, data);
+  var opts = function (sel, none) { return (none ? '<option value="-1">(ninguna)</option>' : '') + hdr.map(function (h, i) { return '<option value="' + i + '"' + (sel === i ? ' selected' : '') + '>' + esc(h || ('Columna ' + (i + 1))) + '</option>'; }).join(''); };
+  var m = el('<div class="modal"><div class="modal-card wide"><h3>Banco nuevo: ' + esc(scan.name) + '</h3>' +
+    (total > 1 ? '<p class="mut sm">Archivo ' + (idx + 1) + ' de ' + total + ' con formato nuevo.</p>' : '') +
+    '<p class="mut">No conozco este formato todavía. Revisá qué columna es cada cosa (ya propuse lo más probable). Lo recuerdo para la próxima vez.</p>' +
+    '<div class="frow"><label>Fecha</label><select id="mDate">' + opts(g.dateCol) + '</select></div>' +
+    '<div class="frow" id="mFmtRow"><label>Las fechas son</label><select id="mFmt"><option value="dmy">día/mes (03/07 = 3 jul)</option><option value="mdy">mes/día (07/03 = 3 jul)</option></select></div>' +
+    '<div class="frow"><label>Descripción</label><select id="mDesc">' + opts(g.descCol) + '</select></div>' +
+    '<div class="frow"><label>Montos</label><div class="seg" id="mMode"><button data-v="one" class="' + (g.mode === 'one' ? 'on' : '') + '">Una columna</button><button data-v="two" class="' + (g.mode === 'two' ? 'on' : '') + '">Débito y crédito</button></div></div>' +
+    '<div id="mOne"><div class="frow"><label>Monto</label><select id="mAmt">' + opts(g.amountCol) + '</select></div>' +
+    '<div class="frow"><label>Signo</label><select id="mSign"><option value="posGasto"' + (g.sign === 'posGasto' ? ' selected' : '') + '>Positivo = gasto</option><option value="posIngreso"' + (g.sign === 'posIngreso' ? ' selected' : '') + '>Negativo = gasto</option></select></div></div>' +
+    '<div id="mTwo"><div class="frow"><label>Débito (gastos)</label><select id="mDeb">' + opts(g.debitCol) + '</select></div>' +
+    '<div class="frow"><label>Crédito (ingresos)</label><select id="mCre">' + opts(g.creditCol) + '</select></div></div>' +
+    '<div class="frow"><label>Nombre del banco</label><input id="mBank" placeholder="Ej. Banco Nacional"></div>' +
+    '<div class="modal-preview" id="mPrev"></div>' +
+    '<div class="btn-row"><button class="btn" id="mCancel">No importar este archivo</button><button class="btn primary" id="mOk">Guardar y leer</button></div>' +
     '</div></div>');
   document.body.appendChild(m);
-  $('mCancel').onclick = function () { m.remove(); finishImport(allScans.filter(function (s) { return s !== scan; })); };
+  var cur = function () {
+    var two = segVal('mMode') === 'two';
+    return { dateCol: +$('mDate').value, dateFmt: $('mFmt').value, descCol: +$('mDesc').value,
+             amountCol: two ? null : +$('mAmt').value, sign: $('mSign').value,
+             debitCol: two ? +$('mDeb').value : null, creditCol: two ? +$('mCre').value : null,
+             bankName: $('mBank').value.trim() || 'Banco', currency: DB.profile.currency };
+  };
+  var fmtFor = function () {
+    var gd = P.guessDateFmt(data.map(function (r) { return r[+$('mDate').value]; }));
+    $('mFmt').value = gd.fmt;
+    $('mFmtRow').hidden = !gd.ambiguous;   // sólo se pregunta si las fechas no lo dejan claro
+  };
+  var preview = function () {
+    $('mOne').hidden = segVal('mMode') === 'two'; $('mTwo').hidden = segVal('mMode') !== 'two';
+    var r = P.parseGenericCSV(scan._text, cur()), d = r.diag;
+    $('mPrev').innerHTML = '<b>Así lo voy a leer:</b> ' + r.rows.length + ' movimiento(s)' + (d.skipped ? ' · <span class="out">' + d.skipped + ' fila(s) que no entiendo</span>' : '') + '<br>' +
+      r.rows.slice(0, 4).map(function (x) { return esc(x.fecha + ' · ' + x.raw.slice(0, 28) + ' · ' + (x.tipo === 'Gasto' ? '−' : '+') + money(x.amount)); }).join('<br>') +
+      (d.skippedRows.length ? '<br><span class="out">' + d.skippedRows.slice(0, 2).map(function (x) { return esc((x.desc || '') + ' — ' + x.why); }).join('<br>') + '</span>' : '');
+  };
+  wireSegEl($('mMode'));
+  $('mMode').querySelectorAll('button').forEach(function (b) { var prev = b.onclick; b.onclick = function () { prev.call(b); preview(); }; });
+  $('mDate').onchange = function () { fmtFor(); preview(); };
+  ['mFmt', 'mDesc', 'mAmt', 'mSign', 'mDeb', 'mCre'].forEach(function (id) { $(id).onchange = preview; });
+  fmtFor(); preview();
+  $('mCancel').onclick = function () { m.remove(); cb(null); };
   $('mOk').onclick = function () {
-    var map = { dateCol: +$('mDate').value, descCol: +$('mDesc').value, amountCol: +$('mAmt').value, sign: $('mSign').value, bankName: $('mBank').value.trim() || 'Banco', currency: DB.profile.currency };
-    DB.bankMaps[scan.signature] = map;
-    // re-parsear este archivo con el mapeo (tenemos las líneas en _sniff)
-    var reparsed = P.parseGenericCSV(sn.lines.join('\n'), map); reparsed.name = scan.name;
-    m.remove();
-    finishImport(allScans.map(function (s) { return s === scan ? reparsed : s; }));
+    var map = cur();
+    if (P.parseGenericCSV(scan._text, map).rows.length === 0 && !confirm('Con estas columnas no leo ningún movimiento. ¿Guardar igual?')) return;
+    m.remove(); cb(map);
   };
 }
 
@@ -3462,8 +3663,8 @@ function readHistFiles(files) {
     }
     return f.text().then(function (text) {
       var sn = P.sniffCSV(text);
-      var rows = [sn.header].concat(sn.lines.slice(1).map(function (l) { return P.csvSplit(l, sn.sep); }));
-      var r = H.fromWorkbook([{ name: 'CSV', rows: rows }], f.name); r.file = f.name; r.csvRows = rows; return r;
+      var rows = sn.lines.map(function (l) { return P.csvSplit(l, sn.sep); });
+      var r = H.fromWorkbook([{ name: 'CSV', rows: rows }], f.name); r.file = f.name; r.csvRows = rows; r.csvHeaderIdx = sn.headerIdx || 0; return r;
     });
   }));
 }
@@ -3486,7 +3687,8 @@ function onHistFiles(ev, done) {
 }
 // Mapeo manual (solo CSV sin encabezados reconocibles).
 function openHistMapper(r, done) {
-  var headers = (r.csvRows[0] || []).map(function (h) { return String(h == null ? '' : h); });
+  var hIdx = r.csvHeaderIdx || 0;
+  var headers = (r.csvRows[hIdx] || []).map(function (h) { return String(h == null ? '' : h); });
   var guess = H.detectColumns(headers);
   var opts = function (sel) { return headers.map(function (h, i) { return '<option value="' + i + '"' + (guess[sel] === i ? ' selected' : '') + '>' + esc(h || ('Columna ' + (i + 1))) + '</option>'; }).join(''); };
   var m = el('<div class="modal"><div class="modal-card"><h3>¿Cuál columna es cuál?</h3>' +
@@ -3501,7 +3703,7 @@ function openHistMapper(r, done) {
   $('hmCancel').onclick = function () { m.remove(); };
   $('hmOk').onclick = function () {
     var map = { fecha: +$('hmDate').value, desc: +$('hmDesc').value, cat: +$('hmCat').value, monto: +$('hmAmt').value };
-    var recs = H.recordsFrom(r.csvRows, map, 1, r.file);
+    var recs = H.recordsFrom(r.csvRows, map, hIdx + 1, r.file);
     m.remove();
     if (!recs.length) { toast('El archivo no tiene filas de datos.', 'err'); return; }
     openHistConfirm([{ file: r.file, tables: [{ sheet: 'CSV', headerRow: 1, count: recs.length }], records: recs }], [], done);
