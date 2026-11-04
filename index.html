@@ -49,7 +49,10 @@ label.chk input{width:auto;accent-color:#38bdf8}
 .welcome{max-width:580px;margin:9vh auto;text-align:center}
 .welcome h1{font-size:36px;background:linear-gradient(120deg,#e8eefc,#7dd3fc);-webkit-background-clip:text;background-clip:text;color:transparent}
 .lede{font-size:17px;color:var(--mut);margin-bottom:26px}
-.welcome-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:20px 0}
+.welcome-actions{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin:20px 0}
+.w-opt{flex:1 1 220px;max-width:270px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.w-opt .btn{width:100%}
+.w-opt .mut{line-height:1.4}
 .resume{margin:22px 0 4px}
 .resume .btn{font-size:16px;padding:12px 22px}
 .resume .mut{margin-top:8px}
@@ -638,7 +641,8 @@ function ignoreDuplicate(db, key) { if (!db.dupIgnore) db.dupIgnore = {}; db.dup
 // SOLO la diferencia (ids agregados + versión previa de filas corregidas + auditoría
 // y categorías previas). Así "Deshacer" funciona aunque se recargue la página.
 function importCheckpoint(db) {
-  return { rows: JSON.stringify(db.ledger), audit: JSON.stringify(db.audit || []), cats: JSON.stringify(db.categories) };
+  return { rows: JSON.stringify(db.ledger), audit: JSON.stringify(db.audit || []), cats: JSON.stringify(db.categories),
+           rules: JSON.stringify(db.rules || {}) };
 }
 function recordImport(db, cp, names) {
   var before = JSON.parse(cp.rows), byId = {};
@@ -649,7 +653,7 @@ function recordImport(db, cp, names) {
     if (!b) added.push(t.id); else if (JSON.stringify(b) !== JSON.stringify(t)) changed.push(b);
   });
   db.lastImport = { at: Date.now(), names: names || [], added: added, changed: changed,
-                    audit: JSON.parse(cp.audit), cats: JSON.parse(cp.cats) };
+                    audit: JSON.parse(cp.audit), cats: JSON.parse(cp.cats), rules: cp.rules ? JSON.parse(cp.rules) : null };
   return db.lastImport;
 }
 function undoLastImport(db) {
@@ -659,6 +663,7 @@ function undoLastImport(db) {
   li.changed.forEach(function (r) { prev[r.id] = r; });
   db.ledger = db.ledger.filter(function (t) { return !addedSet[t.id]; }).map(function (t) { return prev[t.id] || t; });
   db.audit = li.audit; db.categories = li.cats;
+  if (li.rules) db.rules = li.rules;   // lo aprendido del historial también se deshace
   delete db.lastImport;
   return { removed: li.added.length, restored: li.changed.length };
 }
@@ -1514,7 +1519,9 @@ function serialize(db) {
 // Acepta el sobre nuevo o un db "pelado" (compatibilidad). Migra y de-dup.
 function deserialize(text) {
   var obj;
-  var BAD = 'Ese no es tu archivo de datos. Acá se abre tu archivo .finanzas (el que creaste con este dashboard), no el estado de cuenta del banco. Los estados de cuenta se suben con el botón Importar, ya adentro.';
+  var BAD = 'Ese no es tu presupuesto guardado. Acá se abre solo tu archivo .finanzas (el que creó este dashboard). ' +
+    'Si es un Excel con tu historial: tocá "Crear mi presupuesto", guardá el Excel como CSV y cargalo en el paso "Cargá tu historial" (o en Ajustes → Historial). ' +
+    'Los estados de cuenta del banco se suben con "Importar", ya adentro.';
   try { obj = JSON.parse(text); } catch (e) { throw new Error(BAD); }
   var db;
   if (obj && obj.magic === MAGIC && obj.data) db = obj.data;
@@ -1602,7 +1609,7 @@ function getRemembered() { return idb('readonly', function (st) { return st.get(
 function openRemembered(h) {
   var ask = h.requestPermission ? h.requestPermission({ mode: 'readwrite' }) : Promise.resolve('granted');
   return ask.then(function (p) {
-    if (p !== 'granted') throw new Error('Chrome no dio permiso para abrir tu archivo. Usá "Abrir mi archivo".');
+    if (p !== 'granted') throw new Error('Chrome no dio permiso para abrir tu archivo. Usá "Abrir mi presupuesto guardado".');
     return h.getFile();
   }).then(function (f) { return f.text(); }).then(function (txt) {
     var db = deserialize(txt); handle = h; return { db: db, handle: h };
@@ -2088,13 +2095,45 @@ function analyze(db, records, opts) {
            counts: { total: records.length, parsed: rows.length, skipped: skipped.length, in: Math.round(totalIn), out: Math.round(totalOut), save: Math.round(totalSave) } };
 }
 
-// Aplica el resultado a la base: crea categorías nuevas y concilia las filas.
+// Aprender del historial: cada comercio → la categoría que la persona le puso, para
+// que los próximos estados de cuenta salgan categorizados solos. Reglas:
+//  - sólo gastos, y nunca "Otros" (es un cajón de sastre, no una preferencia);
+//  - clave = el nombre tal cual Y su versión limpia ("Auto Mercado Santa Ana" →
+//    "Auto Mercado"), porque el banco escribe el mismo comercio distinto;
+//  - si un comercio aparece con categorías distintas (ej. Uber → Transporte o
+//    Imprevistos), sólo se aprende si una domina (≥75%); si no, queda a criterio;
+//  - NUNCA pisa una regla que la persona ya fijó a mano en el dashboard.
+var LEARN_MIN_SHARE = 0.75;
+function learnFromHistory(db, rows) {
+  var votes = {};   // clave → {catId: n}
+  rows.forEach(function (r) {
+    if (r.tipo !== 'Gasto' || !r.cat || r.cat === 'otros' || r.cat === 'transferencia') return;
+    var keys = {}, k1 = E.norm(r.desc), k2 = E.norm(E.cleanMerchant(r.desc));
+    if (k1.length >= 3) keys[k1] = 1;
+    if (k2.length >= 3) keys[k2] = 1;
+    for (var k in keys) { var v = votes[k] || (votes[k] = {}); v[r.cat] = (v[r.cat] || 0) + 1; }
+  });
+  var learned = 0;
+  for (var key in votes) {
+    if (db.rules[key]) continue;
+    var v = votes[key], tot = 0, best = null;
+    for (var c in v) { tot += v[c]; if (!best || v[c] > v[best]) best = c; }
+    if (v[best] / tot < LEARN_MIN_SHARE) continue;
+    db.rules[key] = best; learned++;
+  }
+  return learned;
+}
+
+// Aplica el resultado a la base: crea categorías nuevas, concilia las filas y aprende
+// las preferencias de categoría (res.learned = cuántos comercios nuevos aprendió).
 function apply(db, result) {
   result.newCats.forEach(function (c) {
     if (!db.categories.some(function (x) { return x.id === c.id; }))
       db.categories.push({ id: c.id, name: c.name, kind: c.kind, need: c.need == null ? null : c.need, budget: null });
   });
-  return E.commitScan(db, [result.scan]);
+  var res = E.commitScan(db, [result.scan]);
+  res.learned = learnFromHistory(db, result.scan.rows);
+  return res;
 }
 
 // Detección de columnas por encabezado (para el mapeo automático en la UI).
@@ -2111,7 +2150,7 @@ function detectColumns(headers) {
 }
 
 var hist = { INCOME_KW: INCOME_KW, SAVE_KW: SAVE_KW, toISO: toISO, toAmount: toAmount,
-  planCategories: planCategories, analyze: analyze, apply: apply, detectColumns: detectColumns, inferKind: inferKind };
+  planCategories: planCategories, analyze: analyze, apply: apply, learnFromHistory: learnFromHistory, detectColumns: detectColumns, inferKind: inferKind };
 if (typeof module !== 'undefined' && module.exports) module.exports = hist;
 root.FinHist = hist;
 
@@ -2235,7 +2274,9 @@ function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').repla
 function toast(msg, kind) {
   var t = el('<div class="toast ' + (kind || '') + '">' + esc(msg) + '</div>');
   document.body.appendChild(t); setTimeout(function () { t.classList.add('show'); }, 10);
-  setTimeout(function () { t.classList.remove('show'); setTimeout(function () { t.remove(); }, 300); }, 3200);
+  // Mensajes largos (ej. "ese no es tu archivo…") quedan más tiempo: ~45 ms por letra, máx. 12 s.
+  var ms = Math.min(12000, Math.max(3200, String(msg).length * 45));
+  setTimeout(function () { t.classList.remove('show'); setTimeout(function () { t.remove(); }, 300); }, ms);
 }
 var DISCLAIMER = 'Esto no es asesoría financiera profesional. Son cálculos sobre tus propios datos para orientarte.';
 
@@ -2278,10 +2319,14 @@ function showWelcome() {
     '<div class="welcome">' +
     '<h1>Presupuesto</h1>' +
     (ST.hasFSA ? '' : '<div class="warn-box">Tu navegador no permite guardar directo al archivo. Vas a poder <b>descargar y subir</b> tu archivo de respaldo (funciona igual, con un paso extra). Para auto-guardado usá Chrome o Edge.</div>') +
+    // Cada opción con su explicación: "abrir" es SOLO el archivo .finanzas del propio
+    // dashboard; el Excel/CSV de historial y los estados de cuenta entran ya adentro.
     '<div class="welcome-actions">' +
-    '<button class="btn primary" id="wNew">Empezar de cero</button>' +
-    '<button class="btn" id="wOpen">Abrir mi archivo</button>' +
-    (ST.hasFSA ? '' : '<label class="btn">Subir archivo<input type="file" id="wUpload" accept=".finanzas,.json" hidden></label>') +
+    '<div class="w-opt"><button class="btn primary" id="wNew">Crear mi presupuesto</button>' +
+    '<div class="mut sm">Primera vez. Después podés cargar tu historial de Excel (CSV) y tus estados de cuenta.</div></div>' +
+    '<div class="w-opt">' + (ST.hasFSA ? '<button class="btn" id="wOpen">Abrir mi presupuesto guardado</button>' :
+      '<label class="btn">Abrir mi presupuesto guardado<input type="file" id="wUpload" accept=".finanzas,.json" hidden></label>') +
+    '<div class="mut sm">Tu archivo <b>.finanzas</b>. No es para Excel ni estados de cuenta.</div></div>' +
     '</div>' +
     '<p class="conf-note">🔒 Confidencial: este es un dashboard privado y local. Tus datos viven en tu computadora.</p>' +
     '</div>';
@@ -2292,7 +2337,8 @@ function showWelcome() {
     if (!h || !$('wNew')) return;
     var box = el('<div class="resume"><button class="btn primary" id="wResume">Agregar nuevas transacciones</button>' +
       '<div class="mut sm">Abre tu archivo <b>' + esc(h.name) + '</b> con todo lo que ya tenías.</div></div>');
-    $('wNew').parentNode.parentNode.insertBefore(box, $('wNew').parentNode);
+    var acts = document.querySelector('.welcome-actions');
+    acts.parentNode.insertBefore(box, acts);
     $('wNew').classList.remove('primary');
     $('wResume').onclick = function () {
       ST.openRemembered(h).then(function (r) {
@@ -2302,7 +2348,7 @@ function showWelcome() {
         var imp = $('inFiles') && $('inFiles').parentNode;
         if (imp) { imp.classList.add('pulse'); toast('Listo. Tocá "Importar" y subí tu estado de cuenta.', 'ok'); }
       }).catch(function (e) {
-        toast(e.message || 'No pude abrir el archivo. Usá "Abrir mi archivo".', 'err');
+        toast(e.message || 'No pude abrir el archivo. Usá "Abrir mi presupuesto guardado".', 'err');
         if (e && e.name === 'NotFoundError') { ST.forgetHandle(); box.remove(); }   // lo movieron o borraron
       });
     };
@@ -2330,7 +2376,7 @@ function startFresh() {
   } else { renderOnboarding(); }
 }
 function openExisting() {
-  if (!ST.hasFSA) { toast('Usá "Subir archivo" en este navegador', 'err'); return; }
+  if (!ST.hasFSA) { toast('En este navegador usá "Abrir mi presupuesto guardado" para subir tu archivo', 'err'); return; }
   ST.openExisting().then(function (r) { DB = r.db; afterLoad(); }).catch(function (e) { if (e && e.name === 'AbortError') return; toast(e.message || 'No se pudo abrir', 'err'); });
 }
 function afterLoad() {
@@ -3070,7 +3116,7 @@ function histStepBody() {
     '<p class="mut">¿Registraste tus finanzas en el pasado? Podés incluirlas acá importando un <b>CSV</b> con estas columnas:</p>' +
     '<ul class="mut" style="margin:6px 0 12px;padding-left:22px">' +
     '<li>Fecha de transacción</li><li>Descripción</li><li>Categoría</li><li>Monto</li></ul>' +
-    '<p class="mut">El sistema crea tus categorías y deja todo guardado en tu dashboard. Asegurate de que los montos vayan en <b>colones</b>.</p>' +
+    '<p class="mut">El sistema crea tus categorías, <b>aprende cómo categorizás cada comercio</b> (así tus próximos estados de cuenta salen categorizados solos) y deja todo guardado en tu dashboard. Asegurate de que los montos vayan en <b>colones</b>.</p>' +
     '<label class="btn primary">Seleccionar mi CSV<input type="file" id="obHist" accept=".csv,.txt" hidden></label>' +
     '<p class="mut sm" style="margin-top:10px">Si preferís, saltá este paso y empezá importando tu estado de cuenta del banco.</p>';
 }
@@ -3152,7 +3198,8 @@ function openHistConfirm(records, name, done) {
     var r = withUndo([name], function () { return H.apply(DB, finalRes); });
     persist();
     m.remove();
-    toast(r.added + ' transacciones cargadas' + (finalRes.counts.skipped ? ' · ' + finalRes.counts.skipped + ' omitidas' : ''), 'ok');
+    toast(r.added + ' transacciones cargadas' + (finalRes.counts.skipped ? ' · ' + finalRes.counts.skipped + ' omitidas' : '') +
+      (r.learned ? ' · aprendí ' + r.learned + ' comercios para categorizar solo tus próximos estados de cuenta' : ''), 'ok');
     if (done) done();
   };
 }
