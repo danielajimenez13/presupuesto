@@ -50,15 +50,34 @@ label.chk input{width:auto;accent-color:#38bdf8}
 .welcome h1{font-size:36px;background:linear-gradient(120deg,#e8eefc,#7dd3fc);-webkit-background-clip:text;background-clip:text;color:transparent}
 .lede{font-size:17px;color:var(--mut);margin-bottom:26px}
 .welcome-actions{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin:20px 0}
-.w-opt{flex:1 1 220px;max-width:270px;display:flex;flex-direction:column;align-items:center;gap:8px}
-.w-opt .btn{width:100%}
-.w-opt .mut{line-height:1.4}
-.resume{margin:22px 0 4px}
-.resume .btn{font-size:16px;padding:12px 22px}
-.resume .mut{margin-top:8px}
 .pulse{border-color:rgba(56,189,248,.7);animation:pulse 1.6s ease-in-out 4}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(56,189,248,0)}50%{box-shadow:0 0 0 6px rgba(56,189,248,.35)}}
 .conf-note{margin-top:28px;font-size:13px;color:var(--mut)}
+/* arranque guiado: 3 pasos + un botón */
+.btn.big{font-size:16.5px;padding:13px 30px;border-radius:14px;margin-top:6px}
+.w-steps{list-style:none;counter-reset:st;padding:0;margin:26px auto 22px;max-width:430px;text-align:left;display:flex;flex-direction:column;gap:10px}
+.w-steps li{counter-increment:st;display:grid;grid-template-columns:34px 1fr;column-gap:12px;align-items:center;background:var(--glass-2);border:1px solid var(--line);border-radius:14px;padding:11px 14px}
+.w-steps li::before{content:counter(st);grid-row:span 2;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;color:#7dd3fc;background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.3)}
+.w-steps b{font-size:14.5px} .w-steps span{font-size:13px;color:var(--mut)}
+.w-alt{margin-top:24px;font-size:13.5px;color:var(--mut)}
+.w-alt a,.linklike{color:#7dd3fc;cursor:pointer;text-decoration:underline;text-underline-offset:3px;display:inline;font-weight:400;font-size:inherit;margin:0}
+.onb-steps{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px}
+.onb-steps span{flex:1;min-width:110px;font-size:12px;font-weight:600;color:var(--mut);padding:7px 10px;border-radius:10px;background:rgba(148,178,255,.06);border:1px solid var(--line);text-align:center}
+.onb-steps span.on{color:#e0f2fe;background:rgba(56,189,248,.16);border-color:rgba(56,189,248,.45)}
+.onb-steps span.done{color:var(--in);border-color:rgba(52,211,153,.3)}
+.onb-sub{margin-top:-6px}
+ul.tight{margin:6px 0 4px;padding-left:20px} ul.tight li{margin:5px 0}
+.onb.guide{max-width:640px;margin:2vh auto 18px}
+.guide label.btn,.opt-card label.btn,.settings label.btn{display:inline-block;width:auto;margin-top:6px}
+.seg button{white-space:nowrap}
+.guide .btn.big{margin:8px 0 10px}
+.modal-card .frow label{width:auto;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bank-tips{display:flex;flex-direction:column;gap:8px;margin:14px 0 16px}
+.bank-tips div{display:grid;grid-template-columns:96px 1fr;gap:10px;padding:10px 13px;border-radius:12px;background:var(--glass-2);border:1px solid var(--line);font-size:13.5px}
+.bank-tips span{color:var(--mut)}
+.opt-card{max-width:640px;margin:0 auto 30px;padding:20px 22px;border-radius:var(--radius);border:1px dashed var(--line-2);background:rgba(148,178,255,.03)}
+.opt-tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#fcd34d;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);padding:2px 9px;border-radius:20px;margin-bottom:8px}
+.opt-card h4,.settings .opt-tag+h4{margin:0 0 6px;font-size:15px}
 .warn-box{background:rgba(251,191,36,.09);border:1px solid rgba(251,191,36,.28);color:#fcd34d;padding:13px 15px;border-radius:14px;margin:14px 0;text-align:left;font-size:13.5px}
 .ok-box{background:rgba(52,211,153,.09);border:1px solid rgba(52,211,153,.28);color:#6ee7b7;padding:13px 15px;border-radius:14px;margin:0 0 14px;font-size:14px}
 .conf-box{background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.25);padding:15px 17px;border-radius:14px;font-size:13.5px}
@@ -1519,9 +1538,8 @@ function serialize(db) {
 // Acepta el sobre nuevo o un db "pelado" (compatibilidad). Migra y de-dup.
 function deserialize(text) {
   var obj;
-  var BAD = 'Ese no es tu presupuesto guardado. Acá se abre solo tu archivo .finanzas (el que creó este dashboard). ' +
-    'Si es un Excel con tu historial: tocá "Crear mi presupuesto", guardá el Excel como CSV y cargalo en el paso "Cargá tu historial" (o en Ajustes → Historial). ' +
-    'Los estados de cuenta del banco se suben con "Importar", ya adentro.';
+  var BAD = 'Ese no es tu archivo guardado. Acá se abre solo el archivo .finanzas que creó este presupuesto. ' +
+    'Si es la primera vez, tocá "Empezar". Tus estados de cuenta y tu Excel de gastos (opcional) se suben después, ya adentro.';
   try { obj = JSON.parse(text); } catch (e) { throw new Error(BAD); }
   var db;
   if (obj && obj.magic === MAGIC && obj.data) db = obj.data;
@@ -1609,7 +1627,7 @@ function getRemembered() { return idb('readonly', function (st) { return st.get(
 function openRemembered(h) {
   var ask = h.requestPermission ? h.requestPermission({ mode: 'readwrite' }) : Promise.resolve('granted');
   return ask.then(function (p) {
-    if (p !== 'granted') throw new Error('Chrome no dio permiso para abrir tu archivo. Usá "Abrir mi presupuesto guardado".');
+    if (p !== 'granted') throw new Error('Chrome no dio permiso para abrir tu archivo. Usá "Abrir otro archivo".');
     return h.getFile();
   }).then(function (f) { return f.text(); }).then(function (txt) {
     var db = deserialize(txt); handle = h; return { db: db, handle: h };
@@ -1980,7 +1998,12 @@ function importOne(file, db, deps) {
     }).catch(function (e) { return errScan(name, 'No se pudo leer el PDF: ' + (e.message || e)); });
   }
   if (/\.(xls|xlsx|html?)$/.test(low)) {
-    return readAsText(file).then(function (text) { return routeHTML(text, name, deps.DOMParser, db); })
+    return readAsText(file).then(function (text) {
+      // Un .xlsx de verdad es un ZIP ("PK…"): no es un estado de cuenta (los .xls del BCR
+      // son tablas HTML). Probablemente es el Excel de historial → decir dónde va.
+      if (/^PK/.test(text)) return errScan(name, 'Este Excel no es un estado de cuenta del banco. Si es donde anotabas tus gastos con su categoría, cargalo con "Cargar mi Excel" (en Ajustes → Historial en Excel).');
+      return routeHTML(text, name, deps.DOMParser, db);
+    })
       .catch(function (e) { return errScan(name, 'No se pudo leer la tabla: ' + (e.message || e)); });
   }
   // csv/txt/desconocido → texto
@@ -1996,6 +2019,145 @@ var imp = { pdfToText: pdfToText, routeCSV: routeCSV, routeHTML: routeHTML, rout
   genericOrMapped: genericOrMapped, importFiles: importFiles, importOne: importOne };
 if (typeof module !== 'undefined' && module.exports) module.exports = imp;
 root.FinImport = imp;
+
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+
+/* ===== xlsx.js ===== */
+/* ============================================================================
+ * xlsx.js — lector mínimo de Excel (.xlsx) SIN librerías (offline, liviano).
+ * Un .xlsx es un ZIP con XML adentro. Acá: (1) se leen las entradas del ZIP,
+ * (2) se descomprimen con la función `inflate` que se pase (en el navegador:
+ * DecompressionStream('deflate-raw'), nativo de Chrome/Edge), (3) se arma cada
+ * hoja como filas de celdas. Sólo lee VALORES (lo que Excel muestra guardado),
+ * no fórmulas ni formatos. Las fechas de Excel llegan como número de serie y las
+ * convierte quien sepa qué columna es fecha (ver serialToDate).
+ * Puro salvo `inflate` → jsc-testable con ZIPs sin compresión.
+ * ==========================================================================*/
+(function (root) {
+'use strict';
+
+/* ------------------------------------------------------------------ ZIP ----*/
+function u16(b, o) { return b[o] | (b[o + 1] << 8); }
+function u32(b, o) { return (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)) >>> 0; }
+function utf8(bytes) {
+  if (typeof TextDecoder !== 'undefined') return new TextDecoder('utf-8').decode(bytes);
+  var s = '', i = 0;   // respaldo para jsc (sin TextDecoder)
+  while (i < bytes.length) {
+    var c = bytes[i++];
+    if (c < 0x80) s += String.fromCharCode(c);
+    else if (c < 0xe0) s += String.fromCharCode(((c & 31) << 6) | (bytes[i++] & 63));
+    else if (c < 0xf0) s += String.fromCharCode(((c & 15) << 12) | ((bytes[i++] & 63) << 6) | (bytes[i++] & 63));
+    else { var cp = ((c & 7) << 18) | ((bytes[i++] & 63) << 12) | ((bytes[i++] & 63) << 6) | (bytes[i++] & 63); cp -= 0x10000; s += String.fromCharCode(0xd800 + (cp >> 10), 0xdc00 + (cp & 1023)); }
+  }
+  return s;
+}
+// Índice del ZIP: { 'xl/workbook.xml': {method, start, size}, ... }
+function zipEntries(buf) {
+  var b = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  var eocd = -1;
+  for (var i = b.length - 22; i >= Math.max(0, b.length - 65557); i--) { if (u32(b, i) === 0x06054b50) { eocd = i; break; } }
+  if (eocd < 0) throw new Error('No es un archivo Excel (.xlsx) válido');
+  var n = u16(b, eocd + 10), p = u32(b, eocd + 16), out = {};
+  for (var k = 0; k < n; k++) {
+    if (u32(b, p) !== 0x02014b50) break;
+    var method = u16(b, p + 10), csize = u32(b, p + 20), nlen = u16(b, p + 28), xlen = u16(b, p + 30), clen = u16(b, p + 32), loc = u32(b, p + 42);
+    var name = utf8(b.subarray(p + 46, p + 46 + nlen));
+    var start = loc + 30 + u16(b, loc + 26) + u16(b, loc + 28);
+    out[name] = { method: method, start: start, size: csize };
+    p += 46 + nlen + xlen + clen;
+  }
+  return { bytes: b, entries: out };
+}
+// Texto de una entrada. inflate(Uint8Array) → Promise<Uint8Array> para method 8.
+function zipText(zip, name, inflate) {
+  var e = zip.entries[name]; if (!e) return Promise.resolve(null);
+  var raw = zip.bytes.subarray(e.start, e.start + e.size);
+  if (e.method === 0) return Promise.resolve(utf8(raw));
+  if (e.method === 8) {
+    if (!inflate) return Promise.reject(new Error('Este navegador no puede leer Excel. Usá Chrome o Edge, o guardalo como CSV.'));
+    return inflate(raw).then(utf8);
+  }
+  return Promise.reject(new Error('Compresión de Excel no soportada'));
+}
+
+/* ------------------------------------------------------------------ XML ----*/
+function unxml(s) {
+  return String(s).replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, function (_, d) { return String.fromCharCode(+d); })
+    .replace(/&#x([0-9a-f]+);/gi, function (_, h) { return String.fromCharCode(parseInt(h, 16)); })
+    .replace(/&amp;/g, '&');
+}
+function attr(tag, name) { var m = tag.match(new RegExp('\\b' + name + '="([^"]*)"')); return m ? unxml(m[1]) : null; }
+// Texto de un <si> o <is>: concatena todos los <t> (texto con formato viene en varios <r><t>).
+function richText(x) { var out = '', re = /<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g, m; while ((m = re.exec(x))) out += unxml(m[1]); return out; }
+function sharedStrings(xml) {
+  if (!xml) return [];
+  var out = [], re = /<si>([\s\S]*?)<\/si>/g, m;
+  while ((m = re.exec(xml))) out.push(richText(m[1]));
+  return out;
+}
+function colIndex(ref) { var m = /^([A-Z]+)/.exec(ref || ''), n = 0; if (!m) return -1; for (var i = 0; i < m[1].length; i++) n = n * 26 + (m[1].charCodeAt(i) - 64); return n - 1; }
+// Hoja → filas (arreglo de arreglos). Números quedan como number; textos como string.
+function sheetRows(xml, ss) {
+  var rows = [], rre = /<row\b([^>]*)>([\s\S]*?)<\/row>/g, rm;
+  while ((rm = rre.exec(xml))) {
+    var rnum = +attr('<x ' + rm[1] + '>', 'r') || rows.length + 1;
+    var cells = [], cre = /<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g, cm, auto = 0;
+    while ((cm = cre.exec(rm[2]))) {
+      var tag = '<c ' + cm[1] + '>', body = cm[2] || '', t = attr(tag, 't'), ref = attr(tag, 'r');
+      var ci = ref ? colIndex(ref) : auto; auto = ci + 1;
+      var vm = /<v>([\s\S]*?)<\/v>/.exec(body), v = vm ? unxml(vm[1]) : null, val;
+      if (t === 's') val = v == null ? '' : (ss[+v] == null ? '' : ss[+v]);
+      else if (t === 'inlineStr') val = richText(body);
+      else if (t === 'str' || t === 'e') val = v == null ? '' : v;
+      else if (t === 'b') val = v === '1';
+      else val = (v == null || v === '') ? '' : (isNaN(+v) ? v : +v);
+      cells[ci] = val;
+    }
+    for (var j = 0; j < cells.length; j++) if (cells[j] === undefined) cells[j] = '';
+    rows[rnum - 1] = cells;
+  }
+  for (var r = 0; r < rows.length; r++) if (!rows[r]) rows[r] = [];
+  return rows;
+}
+
+/* -------------------------------------------------------------- libro ------*/
+// Devuelve Promise<{ sheets: [{name, rows}] }> en el orden de las pestañas.
+function readXlsx(buf, inflate) {
+  var zip;
+  try { zip = zipEntries(buf); } catch (e) { return Promise.reject(e); }
+  if (!zip.entries['xl/workbook.xml']) return Promise.reject(new Error('No es un archivo Excel (.xlsx) válido'));
+  return Promise.all([zipText(zip, 'xl/workbook.xml', inflate), zipText(zip, 'xl/_rels/workbook.xml.rels', inflate), zipText(zip, 'xl/sharedStrings.xml', inflate)])
+    .then(function (r) {
+      var wb = r[0], rels = r[1] || '', ss = sharedStrings(r[2]);
+      var target = {}, relRe = /<Relationship\b[^>]*>/g, m;
+      while ((m = relRe.exec(rels))) { var tgt = attr(m[0], 'Target') || ''; target[attr(m[0], 'Id')] = tgt.replace(/^\/?xl\//, '').replace(/^\//, ''); }
+      var list = [], sre = /<sheet\b[^>]*>/g, sm, idx = 0;
+      while ((sm = sre.exec(wb))) {
+        idx++;
+        var rid = attr(sm[0], 'r:id'), path = 'xl/' + (target[rid] || ('worksheets/sheet' + idx + '.xml'));
+        list.push({ name: attr(sm[0], 'name') || ('Hoja ' + idx), path: path });
+      }
+      return Promise.all(list.map(function (s) {
+        return zipText(zip, s.path, inflate).then(function (xml) { return { name: s.name, rows: xml ? sheetRows(xml, ss) : [] }; });
+      }));
+    }).then(function (sheets) { return { sheets: sheets }; });
+}
+// Número de serie de Excel → Date (base 1899-12-30; ignora la hora).
+function serialToDate(n) {
+  if (typeof n !== 'number' || n < 1 || n > 2958465) return null;
+  var d = new Date(1899, 11, 30); d.setDate(d.getDate() + Math.floor(n)); return d;
+}
+// inflate nativo de Chrome/Edge (null si el navegador no lo tiene).
+var browserInflate = (typeof DecompressionStream !== 'undefined' && typeof Response !== 'undefined') ? function (bytes) {
+  var ds = new DecompressionStream('deflate-raw');
+  return new Response(new Blob([bytes]).stream().pipeThrough(ds)).arrayBuffer().then(function (ab) { return new Uint8Array(ab); });
+} : null;
+
+var X = { zipEntries: zipEntries, sheetRows: sheetRows, sharedStrings: sharedStrings, colIndex: colIndex,
+          readXlsx: readXlsx, serialToDate: serialToDate, inflate: browserInflate };
+if (typeof module !== 'undefined' && module.exports) module.exports = X;
+root.FinXlsx = X;
 
 })(typeof globalThis !== 'undefined' ? globalThis : this);
 
@@ -2022,9 +2184,58 @@ var SAVE_KW   = /ahorro|\bmeta\b|inversi[oó]n|\bfondo\b/;
 
 function toISO(f) {
   if (f == null || f === '') return '';
-  if (typeof f === 'object' && typeof f.getFullYear === 'function') return E.fmtISO(f); // Date (SheetJS cellDates)
+  if (typeof f === 'object' && typeof f.getFullYear === 'function') return E.fmtISO(f); // Date (lector de Excel)
+  var iso = String(f).trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);                  // 2026-07-03
+  if (iso) return iso[1] + '-' + String(+iso[2]).padStart(2, '0') + '-' + String(+iso[3]).padStart(2, '0');
   var d = E.pdate(String(f));
   return d ? E.fmtISO(d) : '';
+}
+// "15/01" (día/mes sin año), como en la plantilla del asesor.
+var NOYEAR = /^\s*(\d{1,2})[\/\-.](\d{1,2})\s*$/;
+function isYearless(f) { return typeof f === 'string' && NOYEAR.test(f); }
+// Año para una fecha sin año. `year` = año elegido para el archivo; si el archivo cruza
+// de diciembre a enero (meses de oct-dic y de ene-mar a la vez), los de oct-dic son
+// del año anterior: el año elegido es el del lado de enero.
+function withYear(f, year, crossesNewYear) {
+  var m = NOYEAR.exec(f); if (!m || !year) return f;
+  var mo = +m[2], y = (crossesNewYear && mo >= 10) ? year - 1 : year;
+  return m[1] + '/' + m[2] + '/' + y;
+}
+// Días que una fecha queda FUERA del rango [lo, hi] (0 si está adentro).
+function daysOutside(d, lo, hi) {
+  var t = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  var a = Date.parse(lo + 'T00:00:00Z'), b = Date.parse(hi + 'T00:00:00Z');
+  return t < a ? (a - t) / 864e5 : t > b ? (t - b) / 864e5 : 0;
+}
+// Fecha de Excel con día y mes posiblemente invertidos → la corregida, o null si no hay
+// que tocarla. Sólo se invierte si así queda claramente más cerca del resto del archivo.
+function unswap(d, rg) {
+  var day = d.getDate(), mon = d.getMonth() + 1;
+  if (day > 12 || day === mon) return null;
+  var alt = new Date(d.getFullYear(), day - 1, mon);
+  var dOrig = daysOutside(d, rg.lo, rg.hi), dAlt = daysOutside(alt, rg.lo, rg.hi);
+  return (dAlt < dOrig && dAlt <= 31) ? alt : null;
+}
+// Por archivo: cuántas fechas sin año, qué meses, si cruza año, y un año sugerido
+// (el más reciente en que esas fechas no quedan en el futuro).
+function yearlessInfo(records, today) {
+  today = today || new Date();
+  var out = {};
+  records.forEach(function (r) {
+    if (!isYearless(r.fecha)) return;
+    var f = r.file || '', m = NOYEAR.exec(r.fecha), mo = +m[2];
+    var o = out[f] || (out[f] = { count: 0, months: {} });
+    o.count++; o.months[mo] = 1;
+  });
+  for (var f in out) {
+    var ms = Object.keys(out[f].months).map(Number);
+    var cross = ms.some(function (x) { return x >= 10; }) && ms.some(function (x) { return x <= 3; });
+    var endMonth = cross ? Math.max.apply(null, ms.filter(function (x) { return x <= 3; })) : Math.max.apply(null, ms);
+    var y = today.getFullYear();
+    if (endMonth > today.getMonth() + 1) y -= 1;
+    out[f].crossesNewYear = cross; out[f].suggested = y;
+  }
+  return out;
 }
 function toAmount(m) {
   if (typeof m === 'number') return Math.abs(m);
@@ -2058,12 +2269,21 @@ function planCategories(db, records, overrides) {
     if (!raw) { plan[nn] = { id: 'otros', name: 'Otros', kind: 'gasto', isNew: false }; return; }
     var ex = byNorm[nn];
     if (ex) { plan[nn] = { id: ex.id, name: ex.name, kind: ex.kind, isNew: false }; return; }
+    // "Transporte (gasolina, peajes…)" o "Salud y exámenes médicos" → la categoría que ya
+    // existe con ese comienzo ("Transporte", "Salud"). Se informa en la confirmación.
+    var pre = null;
+    db.categories.forEach(function (c) {
+      var cn = E.norm(c.name);
+      if (c.kind !== 'sistema' && cn.length >= 4 && nn.indexOf(cn) === 0 && /^[\s(,:-]/.test(nn.slice(cn.length)) && (!pre || cn.length > E.norm(pre.name).length)) pre = c;
+    });
+    if (pre) { plan[nn] = { id: pre.id, name: pre.name, kind: pre.kind, isNew: false, mergedFrom: raw }; return; }
     var kind = overrides[nn] || inferKind(nn);
     if (kind === 'ahorro' && byNorm['ahorro / metas']) { // reutiliza la de ahorro por defecto
       var a = byNorm['ahorro / metas']; plan[nn] = { id: a.id, name: a.name, kind: 'ahorro', isNew: false }; return;
     }
     var id = slugify(raw, taken); taken[id] = 1;
-    plan[nn] = { id: id, name: E.title ? E.title(raw) : raw, kind: kind, isNew: true };
+    // Se respeta cómo la persona la escribió ("Deuda CONAPE"); sólo si vino toda en minúscula se capitaliza.
+    plan[nn] = { id: id, name: /[A-Z]/.test(raw) ? raw : (E.title ? E.title(raw) : raw), kind: kind, isNew: true };
   });
   return plan;
 }
@@ -2073,25 +2293,64 @@ function planCategories(db, records, overrides) {
 function analyze(db, records, opts) {
   opts = opts || {};
   var plan = planCategories(db, records, opts.overrides);
-  var rows = [], skipped = [], totalIn = 0, totalOut = 0, totalSave = 0;
+  var rows = [], skipped = [], totalIn = 0, totalOut = 0, totalSave = 0, perFile = {}, order = [];
+  var years = opts.years || {}, yinfo = opts.years ? yearlessInfo(records) : {};
+  // Filas SIN fecha (pasa en Excel llevados a mano: un archivo = un mes): la persona
+  // elige una fecha por archivo (opts.fillDates) para que cuenten en ese mes.
+  var fill = opts.fillDates || {}, undated = {};
+  // Excel en inglés convierte "3/02" (3 de febrero, escrito día/mes) en 2 de MARZO.
+  // Referencia por archivo: el rango de las fechas escritas como TEXTO (no pasaron por
+  // esa conversión). Una fecha-de-Excel que sólo calza con día y mes invertidos se
+  // corrige y se informa (res.swapped).
+  var ref = {}, swapped = 0, swappedFiles = {};
+  records.forEach(function (r) {
+    if (typeof r.fecha !== 'string') return;
+    var fe0 = isYearless(r.fecha) && years[r.file || ''] ? withYear(r.fecha, +years[r.file || ''], (yinfo[r.file || ''] || {}).crossesNewYear) : r.fecha;
+    var iso0 = toISO(fe0); if (!iso0) return;
+    var o = ref[r.file || ''] || (ref[r.file || ''] = { lo: iso0, hi: iso0 });
+    if (iso0 < o.lo) o.lo = iso0; if (iso0 > o.hi) o.hi = iso0;
+  });
   records.forEach(function (r, i) {
+    var f = r.file || opts.name || 'Historial (Excel)';
+    if (!perFile[f]) { perFile[f] = { rows: [], candidates: 0, skipped: [] }; order.push(f); }
+    perFile[f].candidates++;
     var desc = (r.desc == null ? '' : String(r.desc)).trim();
-    var iso = toISO(r.fecha);
+    var fe = r.fecha;
+    var noDate = fe == null || String(fe).trim() === '';
+    if (fe && typeof fe === 'object' && typeof fe.getFullYear === 'function' && ref[r.file || '']) {
+      var fx = unswap(fe, ref[r.file || '']);
+      if (fx) { fe = fx; swapped++; swappedFiles[r.file || ''] = (swappedFiles[r.file || ''] || 0) + 1; }
+    }
+    if (noDate) { var u = undated[r.file || ''] || (undated[r.file || ''] = { count: 0, suggest: null }); u.count++; if (fill[r.file || '']) fe = fill[r.file || '']; }
+    if (isYearless(fe) && years[r.file || '']) fe = withYear(fe, +years[r.file || ''], (yinfo[r.file || ''] || {}).crossesNewYear);
+    var iso = toISO(fe);
     var amt = toAmount(r.monto);
     var nn = E.norm((r.cat == null ? '' : String(r.cat)).trim() || 'otros');
     var pc = plan[nn];
-    if (amt == null || amt === 0) { skipped.push({ i: i + 1, why: 'monto ilegible o cero', row: r }); return; }
-    if (!iso) { skipped.push({ i: i + 1, why: 'fecha ilegible', row: r }); return; }
+    var where = r.line ? (r.file ? r.file + ' ' : '') + 'fila ' + r.line : 'fila ' + (i + 1);
+    if (amt == null || amt === 0) { var s1 = { i: i + 1, where: where, why: 'monto ilegible o vacío', row: r }; skipped.push(s1); perFile[f].skipped.push(s1); return; }
+    if (!iso) { var s2 = { i: i + 1, where: where, why: noDate ? 'sin fecha' : isYearless(r.fecha) ? 'fecha sin año (' + r.fecha + ')' : 'fecha ilegible', row: r }; skipped.push(s2); perFile[f].skipped.push(s2); return; }
     var tipo = pc.kind === 'ingreso' ? 'Ingreso' : 'Gasto';
     var cat = pc.kind === 'ahorro' ? 'ahorro' : pc.id;
     if (pc.kind === 'ingreso') totalIn += amt; else if (pc.kind === 'ahorro') totalSave += amt; else totalOut += amt;
-    rows.push({ fecha: iso, desc: desc || pc.name, raw: desc, amount: amt, tipo: tipo, cat: cat });
+    var row = { fecha: iso, desc: desc || pc.name, raw: desc, amount: amt, tipo: tipo, cat: cat };
+    if (!noDate) { var uf = undated[r.file || ''] || (undated[r.file || ''] = { count: 0, suggest: null }); if (!uf.suggest || iso > uf.suggest) uf.suggest = iso; }
+    rows.push(row); perFile[f].rows.push(row);
   });
   var newCats = [];
+  // Sugerencia para las filas sin fecha: la última fecha que sí trae ese archivo.
+  for (var uk in undated) if (!undated[uk].count) delete undated[uk];
+  var merged = [];
+  for (var mk in plan) if (plan[mk].mergedFrom) merged.push({ from: plan[mk].mergedFrom, to: plan[mk].name });
   for (var k in plan) if (plan[k].isNew) newCats.push({ id: plan[k].id, name: plan[k].name, kind: plan[k].kind, need: null, budget: null, norm: k });
-  var scan = { name: opts.name || 'Historial (Excel)', bank: 'Historial', currency: 'CRC', kind: 'historial',
-    rows: rows, diag: { candidates: records.length, parsed: rows.length, skipped: skipped.length, skippedRows: skipped.slice(0, 20) } };
-  return { scan: scan, newCats: newCats, plan: plan, skipped: skipped,
+  // Un "scan" por archivo (como los estados de cuenta): el índice de ocurrencia es por
+  // archivo, así una fila repetida en dos archivos (ej. un resumen + el mes) no se duplica.
+  var scans = order.map(function (f) {
+    var pf = perFile[f];
+    return { name: f, bank: 'Historial', currency: 'CRC', kind: 'historial', rows: pf.rows,
+             diag: { candidates: pf.candidates, parsed: pf.rows.length, skipped: pf.skipped.length, skippedRows: pf.skipped.slice(0, 20) } };
+  });
+  return { scans: scans, scan: scans[0] || { rows: [] }, newCats: newCats, merged: merged, undated: undated, swapped: swapped, swappedFiles: swappedFiles, plan: plan, skipped: skipped,
            counts: { total: records.length, parsed: rows.length, skipped: skipped.length, in: Math.round(totalIn), out: Math.round(totalOut), save: Math.round(totalSave) } };
 }
 
@@ -2131,9 +2390,55 @@ function apply(db, result) {
     if (!db.categories.some(function (x) { return x.id === c.id; }))
       db.categories.push({ id: c.id, name: c.name, kind: c.kind, need: c.need == null ? null : c.need, budget: null });
   });
-  var res = E.commitScan(db, [result.scan]);
-  res.learned = learnFromHistory(db, result.scan.rows);
+  var scans = result.scans || [result.scan];
+  var res = E.commitScan(db, scans);
+  res.learned = learnFromHistory(db, [].concat.apply([], scans.map(function (s) { return s.rows; })));
   return res;
+}
+
+/* ---------------------------------------------- hojas de Excel → registros */
+// Cada archivo puede traer varias hojas (ej. la plantilla del asesor: "Datos
+// Generales", "Mis Ingresos…", "Presupuesto"…; o un mes por pestaña). Se usan las
+// hojas cuyo encabezado (buscado en las primeras 20 filas, porque suele haber
+// títulos arriba) tenga Fecha + Categoría + Monto. Las demás se ignoran y se dicen.
+var X = root.FinXlsx || (typeof require !== 'undefined' ? require('./xlsx.js') : null);
+function cellText(v) { return v == null ? '' : String(v).trim(); }
+function findHeader(rows) {
+  for (var i = 0; i < Math.min(rows.length, 20); i++) {
+    var r = (rows[i] || []).map(cellText);
+    if (!r.some(function (c) { return c; })) continue;
+    var m = detectColumns(r);
+    if (m.fecha >= 0 && m.monto >= 0 && m.cat >= 0) return { headerRow: i, map: m, headers: r };
+  }
+  return null;
+}
+// rows de UNA hoja + mapa → registros {fecha, desc, cat, monto, file, line}. Las fechas
+// que Excel guarda como número de serie se convierten a fecha real.
+function recordsFrom(rows, map, start, file) {
+  var out = [];
+  for (var i = start; i < rows.length; i++) {
+    var r = rows[i] || [], f = r[map.fecha];
+    if (typeof f === 'number' && X) f = X.serialToDate(f) || f;
+    var rec = { fecha: f, desc: map.desc >= 0 ? r[map.desc] : '', cat: r[map.cat], monto: r[map.monto], file: file, line: i + 1 };
+    var empty = function (v) { return v == null || v === ''; };
+    if (empty(rec.fecha) && empty(rec.monto) && empty(rec.cat) && empty(rec.desc)) continue;   // fila vacía
+    if (empty(rec.fecha) && empty(rec.monto)) continue;                                         // filas de total/título
+    out.push(rec);
+  }
+  return out;
+}
+// Libro (sheets) → { tables:[{sheet, headerRow, count}], records, ignored:[nombres] }
+function fromWorkbook(sheets, file) {
+  var tables = [], records = [], ignored = [];
+  sheets.forEach(function (sh) {
+    var h = findHeader(sh.rows);
+    if (!h) { ignored.push(sh.name); return; }
+    var recs = recordsFrom(sh.rows, h.map, h.headerRow + 1, file);
+    if (!recs.length) { ignored.push(sh.name); return; }
+    tables.push({ sheet: sh.name, headerRow: h.headerRow + 1, count: recs.length });
+    records = records.concat(recs);
+  });
+  return { tables: tables, records: records, ignored: ignored };
 }
 
 // Detección de columnas por encabezado (para el mapeo automático en la UI).
@@ -2150,7 +2455,9 @@ function detectColumns(headers) {
 }
 
 var hist = { INCOME_KW: INCOME_KW, SAVE_KW: SAVE_KW, toISO: toISO, toAmount: toAmount,
-  planCategories: planCategories, analyze: analyze, apply: apply, learnFromHistory: learnFromHistory, detectColumns: detectColumns, inferKind: inferKind };
+  planCategories: planCategories, analyze: analyze, apply: apply, learnFromHistory: learnFromHistory,
+  findHeader: findHeader, recordsFrom: recordsFrom, fromWorkbook: fromWorkbook,
+  isYearless: isYearless, withYear: withYear, yearlessInfo: yearlessInfo, unswap: unswap, detectColumns: detectColumns, inferKind: inferKind };
 if (typeof module !== 'undefined' && module.exports) module.exports = hist;
 root.FinHist = hist;
 
@@ -2314,46 +2621,72 @@ function boot() {
   wireGlobal();
   showWelcome();
 }
+// Pantalla de inicio. Primera vez: qué es esto + los 3 pasos + UN botón "Empezar".
+// "Abrir tu archivo guardado" queda como enlace chico: casi nadie lo tiene la 1ª vez.
+// Si el navegador recuerda un archivo, el foco pasa a "Agregar nuevas transacciones".
+var FLOW = ['Tu archivo', 'Contanos de vos', 'Tu estado de cuenta'];
 function showWelcome() {
   $('screen').innerHTML =
     '<div class="welcome">' +
     '<h1>Presupuesto</h1>' +
-    (ST.hasFSA ? '' : '<div class="warn-box">Tu navegador no permite guardar directo al archivo. Vas a poder <b>descargar y subir</b> tu archivo de respaldo (funciona igual, con un paso extra). Para auto-guardado usá Chrome o Edge.</div>') +
-    // Cada opción con su explicación: "abrir" es SOLO el archivo .finanzas del propio
-    // dashboard; el Excel/CSV de historial y los estados de cuenta entran ya adentro.
-    '<div class="welcome-actions">' +
-    '<div class="w-opt"><button class="btn primary" id="wNew">Crear mi presupuesto</button>' +
-    '<div class="mut sm">Primera vez. Después podés cargar tu historial de Excel (CSV) y tus estados de cuenta.</div></div>' +
-    '<div class="w-opt">' + (ST.hasFSA ? '<button class="btn" id="wOpen">Abrir mi presupuesto guardado</button>' :
-      '<label class="btn">Abrir mi presupuesto guardado<input type="file" id="wUpload" accept=".finanzas,.json" hidden></label>') +
-    '<div class="mut sm">Tu archivo <b>.finanzas</b>. No es para Excel ni estados de cuenta.</div></div>' +
-    '</div>' +
-    '<p class="conf-note">🔒 Confidencial: este es un dashboard privado y local. Tus datos viven en tu computadora.</p>' +
+    '<p class="lede">Ordená tus gastos con los estados de cuenta de tu banco y mirá en qué se te va la plata.</p>' +
+    (ST.hasFSA ? '' : '<div class="warn-box">Este navegador no guarda solo. Funciona igual, pero vas a tener que <b>descargar tu archivo</b> (botón Respaldo) para no perder cambios. Para que se guarde solo, usá <b>Chrome o Edge</b>.</div>') +
+    '<div id="wMain"><ol class="w-steps">' +
+    '<li><b>Creá tu archivo</b><span>Ahí se guarda todo, en tu computadora.</span></li>' +
+    '<li><b>Contanos de vos</b><span>Nombre, ingreso y meta de ahorro. Un minuto.</span></li>' +
+    '<li><b>Subí tu estado de cuenta</b><span>BCR o BAC. Se categoriza solo.</span></li></ol>' +
+    '<button class="btn primary big" id="wNew">Empezar</button></div>' +
+    '<p class="w-alt" id="wAlt">¿Ya lo usaste antes en otra computadora o navegador? ' +
+    (ST.hasFSA ? '<a href="#" id="wOpen">Abrí tu archivo guardado</a>' :
+      '<label class="linklike">Abrí tu archivo guardado<input type="file" id="wUpload" accept=".finanzas,.json" hidden></label>') + '</p>' +
+    '<p class="conf-note">🔒 Tus datos nunca salen de tu computadora: nada se sube a internet.</p>' +
     '</div>';
-  if ($('wNew')) $('wNew').onclick = startFresh;
-  if ($('wOpen')) $('wOpen').onclick = openExisting;
+  $('wNew').onclick = showFileStep;
+  if ($('wOpen')) $('wOpen').onclick = function (e) { e.preventDefault(); openExisting(); };
+  if ($('wUpload')) $('wUpload').onchange = function (e) { var f = e.target.files[0]; if (f) ST.readUploaded(f).then(function (db) { DB = db; afterLoad(); }).catch(function (err) { toast(err.message || 'No se pudo abrir', 'err'); }); };
   // ¿Ya usó un archivo en este navegador? Ofrecer continuar con él en un clic.
   if (ST.hasFSA) ST.getRemembered().then(function (h) {
-    if (!h || !$('wNew')) return;
-    var box = el('<div class="resume"><button class="btn primary" id="wResume">Agregar nuevas transacciones</button>' +
-      '<div class="mut sm">Abre tu archivo <b>' + esc(h.name) + '</b> con todo lo que ya tenías.</div></div>');
-    var acts = document.querySelector('.welcome-actions');
-    acts.parentNode.insertBefore(box, acts);
-    $('wNew').classList.remove('primary');
+    if (!h || !$('wMain')) return;
+    $('wMain').innerHTML = '<p class="mut">Hola de nuevo. Tu presupuesto está guardado en <b>' + esc(h.name) + '</b>.</p>' +
+      '<button class="btn primary big" id="wResume">Agregar nuevas transacciones</button>' +
+      '<p class="mut sm">Abre tu archivo con todo lo que ya tenías.</p>';
+    $('wAlt').innerHTML = '<a href="#" id="wOpen2">Abrir otro archivo</a> · <a href="#" id="wNew2">Crear un presupuesto nuevo</a>';
+    $('wOpen2').onclick = function (e) { e.preventDefault(); openExisting(); };
+    $('wNew2').onclick = function (e) { e.preventDefault(); showFileStep(); };
     $('wResume').onclick = function () {
       ST.openRemembered(h).then(function (r) {
         DB = r.db; afterLoad();
         // El botón promete agregar transacciones: señalar dónde se hace. (No se abre el
         // selector solo: Chrome lo bloquea si no viene directo de un clic.)
         var imp = $('inFiles') && $('inFiles').parentNode;
-        if (imp) { imp.classList.add('pulse'); toast('Listo. Tocá "Importar" y subí tu estado de cuenta.', 'ok'); }
+        if (imp) { imp.classList.add('pulse'); toast('Listo. Tocá "Subir estado de cuenta" y elegí tus archivos del banco.', 'ok'); }
       }).catch(function (e) {
-        toast(e.message || 'No pude abrir el archivo. Usá "Abrir mi presupuesto guardado".', 'err');
-        if (e && e.name === 'NotFoundError') { ST.forgetHandle(); box.remove(); }   // lo movieron o borraron
+        toast(e.message || 'No pude abrir el archivo. Usá "Abrir otro archivo".', 'err');
+        if (e && e.name === 'NotFoundError') { ST.forgetHandle(); showWelcome(); }   // lo movieron o borraron
       });
     };
   });
-  if ($('wUpload')) $('wUpload').onchange = function (e) { var f = e.target.files[0]; if (f) ST.readUploaded(f).then(function (db) { DB = db; afterLoad(); }).catch(function (err) { toast(err.message || 'No se pudo abrir', 'err'); }); };
+}
+// Encabezado de los pasos (1 Tu archivo · 2 Contanos de vos · 3 Tu estado de cuenta).
+function onbHead(n, title, sub) {
+  return '<div class="onb-steps">' + FLOW.map(function (f, i) {
+    return '<span class="' + (i + 1 < n ? 'done' : i + 1 === n ? 'on' : '') + '">' + (i + 1 < n ? '✓ ' : (i + 1) + '. ') + f + '</span>';
+  }).join('') + '</div><h2>' + title + '</h2>' + (sub ? '<p class="mut sm onb-sub">' + sub + '</p>' : '');
+}
+// Paso 1: explicar el archivo ANTES de que Chrome abra su ventana de guardar
+// (si no, aparece una ventana del sistema sin contexto).
+function showFileStep() {
+  if (!ST.hasFSA) { DB = E.freshDB(); applySeed(); OB.step = 0; renderOnboarding(); return; }
+  $('screen').innerHTML = '<div class="onb">' + onbHead(1, 'Creá tu archivo') +
+    '<p>Todo lo que hagás se guarda en <b>un archivo en tu computadora</b>. No se sube a internet.</p>' +
+    '<p class="mut">Al tocar el botón se abre una ventana para elegir dónde guardarlo:</p>' +
+    '<ul class="mut tight">' +
+    '<li>Elegí una carpeta con respaldo, como <b>iCloud Drive</b> o <b>Google Drive</b>, para no perderlo nunca.</li>' +
+    '<li>El nombre ya viene puesto (termina en <b>.finanzas</b>). Podés dejarlo así.</li>' +
+    '<li>Se guarda solo cada vez que cambiás algo. La próxima vez entrás con un clic.</li></ul>' +
+    '<div class="onb-nav"><button class="btn" id="fsBack">Atrás</button><button class="btn primary" id="fsGo">Elegir dónde guardar</button></div></div>';
+  $('fsBack').onclick = showWelcome;
+  $('fsGo').onclick = startFresh;
 }
 // Precarga "horneada" (ediciones personalizadas, ej. Daniel): historial ya
 // categorizado embebido en el programa. Solo aplica al crear un archivo nuevo;
@@ -2371,12 +2704,14 @@ function applySeed() {
 function startFresh() {
   DB = E.freshDB();
   applySeed();
+  OB.step = 0;
   if (ST.hasFSA) {
+    // Cancelar la ventana de guardar deja a la persona en el paso 1 (no avanza sin archivo).
     ST.createNew(DB).then(function () { renderOnboarding(); }).catch(function (e) { if (e && e.name === 'AbortError') return; toast('No se pudo crear el archivo: ' + (e.message || e), 'err'); renderOnboarding(); });
   } else { renderOnboarding(); }
 }
 function openExisting() {
-  if (!ST.hasFSA) { toast('En este navegador usá "Abrir mi presupuesto guardado" para subir tu archivo', 'err'); return; }
+  if (!ST.hasFSA) { toast('En este navegador usá "Abrí tu archivo guardado" para subir tu archivo', 'err'); return; }
   ST.openExisting().then(function (r) { DB = r.db; afterLoad(); }).catch(function (e) { if (e && e.name === 'AbortError') return; toast(e.message || 'No se pudo abrir', 'err'); });
 }
 function afterLoad() {
@@ -2386,70 +2721,49 @@ function afterLoad() {
 
 /* ============================================================= ONBOARDING ===*/
 var OB = { step: 0 };
+// Paso 2 "Contanos de vos": 3 preguntas cortas. Al terminar, el tablero vacío ES el
+// paso 3 (subir el estado de cuenta). El historial en Excel ya no va acá: es opcional
+// y aparece en el paso 3 y en Ajustes.
 function renderOnboarding() {
   MK = MK || S.latestMonth(DB);
   var p = DB.profile;
+  var usd = (p.currency === 'USD' || p.incomeCurrency === 'USD');
   var steps = [
-    { // 1 — nombre + moneda
-      title: 'Datos generales',
-      body: '<label>¿Cuál es tu nombre?</label><input id="obName" value="' + esc(p.name) + '" placeholder="Tu nombre">' +
-            '<label>¿En qué moneda manejás tu plata?</label>' +
-            '<div class="seg" id="obCur">' + segBtn('CRC', 'Colones ₡', p.currency) + segBtn('USD', 'Dólares $', p.currency) + '</div>'
-    },
-    { // 2 — ingreso
-      title: 'Tu ingreso',
-      body: '<label>¿Cuál es tu ingreso mensual? (aprox., lo podés cambiar luego)</label>' +
-            '<div class="frow" style="gap:8px"><input id="obInc" type="number" value="' + (p.income || '') + '" placeholder="0" style="flex:1">' +
-            '<div class="seg" id="obIncCur" style="max-width:170px;flex-shrink:0">' + segBtn('CRC', 'Colones ₡', p.incomeCurrency || p.currency) + segBtn('USD', 'Dólares $', p.incomeCurrency || p.currency) + '</div></div>' +
+    { title: '¿Cómo te llamás?',
+      body: '<input id="obName" value="' + esc(p.name) + '" placeholder="Tu nombre">' +
+            '<label>¿En qué moneda pensás tu plata?</label>' +
+            '<div class="seg" id="obCur">' + segBtn('CRC', 'Colones ₡', p.currency) + segBtn('USD', 'Dólares $', p.currency) + '</div>' },
+    { title: 'Tu ingreso mensual',
+      body: '<p class="mut sm">Aproximado. Sirve para decirte qué % de tu ingreso se va en cada cosa. Lo podés cambiar cuando querás.</p>' +
+            '<div class="frow" style="gap:8px"><input id="obInc" type="number" value="' + (p.income || '') + '" placeholder="Ej. 900000" style="flex:1">' +
+            '<div class="seg" id="obIncCur" style="flex-shrink:0">' + segBtn('CRC', 'Colones ₡', p.incomeCurrency || p.currency) + segBtn('USD', 'Dólares $', p.incomeCurrency || p.currency) + '</div></div>' +
             '<p class="mut sm" id="obIncHint"></p>' +
-            '<label class="chk"><input type="checkbox" id="obIncUnknown" ' + (p.incomeKnown ? '' : 'checked') + '> Prefiero no ponerlo ahora</label>'
-    },
-    { // 3 — ahorro
-      title: 'Tu meta de ahorro',
-      body: '<p class="mut">Regla sugerida: <b>50/30/20</b> — 50% necesidades, 30% gustos, 20% ahorro.</p>' +
-            '<label>¿Qué % de tu ingreso querés ahorrar?</label><input id="obSav" type="number" value="' + (p.savingsValue == null ? 20 : p.savingsValue) + '" min="0" max="100">'
-    },
-    { // 4 — categorías (informativo)
-      title: 'Tus categorías',
-      body: '<p class="mut">Arrancás con 16 categorías listas. Las podés renombrar, borrar o agregar cuando querás en Ajustes.</p>' +
-            '<div class="cat-pills">' + DB.categories.filter(function (c) { return c.kind !== 'sistema'; }).map(function (c) { return '<span class="pill">' + esc(c.name) + '</span>'; }).join('') + '</div>'
-    },
-    { // 5 — cómo se usa + bookmark (cierre)
-      title: 'Cómo se usa',
-      body: '<p class="mut">Este dashboard te ayudará a <b>manejar tus finanzas</b>: registrar tus gastos, llevar un control de cuánto ahorrás y de cómo van tus metas. La idea es que tengás un espacio con todos tus gastos <b>categorizados</b>, y así mayor control sobre lo que está pasando con tus finanzas.</p>' +
-            '<p class="mut">Cada mes, dale clic en <b>Importar</b> y subí el estado de cuenta de tu banco: los movimientos se categorizan y recibís un <b>resumen con gráficos y acciones concretas</b> sobre qué hacer después.</p>' +
-            '<div class="conf-box">⭐ <b>Guardá este link en tus bookmarks.</b> Siempre podés volver acá para agregar tus transacciones mes a mes.</div>'
-    }
+            '<div id="obFxRow"' + (usd ? '' : ' hidden') + '><label>Tipo de cambio (colones por dólar)</label><input id="obFx" type="number" value="' + (p.fxRate || 502) + '"></div>' +
+            '<label class="chk"><input type="checkbox" id="obIncUnknown" ' + (p.incomeKnown ? '' : 'checked') + '> Prefiero no ponerlo ahora</label>' },
+    { title: 'Ahorro y gastos compartidos',
+      body: '<label>¿Qué % de tu ingreso querés ahorrar?</label><input id="obSav" type="number" value="' + (p.savingsValue == null ? 20 : p.savingsValue) + '" min="0" max="100">' +
+            '<p class="mut sm">Sugerido: <b>20%</b> (regla 50/30/20: 50% necesidades, 30% gustos, 20% ahorro).</p>' +
+            '<label class="chk"><input type="checkbox" id="obShare" ' + (p.shareExpenses ? 'checked' : '') + '> Comparto algunos gastos con alguien (pareja, roomie…)</label>' +
+            '<div id="obShareRow"' + (p.shareExpenses ? '' : ' hidden') + '><input id="obShareWith" value="' + esc(p.shareWith || '') + '" placeholder="¿Con quién? Ej. Daniel">' +
+            '<p class="mut sm">Vas a poder marcar qué gastos son compartidos y ver cuánto te deben (mitad y mitad; se cambia en Ajustes).</p></div>' }
   ];
-  var opt = [ // opcionales (paso 6)
-    { title: 'Ajustes de personalización', body:
-      '<label class="chk"><input type="checkbox" id="obShare" ' + (p.shareExpenses ? 'checked' : '') + '> Comparto gastos con alguien</label>' +
-      '<p class="mut sm">Vas a poder marcar qué gastos son compartidos y ver cuánto te deben (50/50 por defecto, ajustable en Ajustes).</p>' +
-      '<label>Tipo de cambio (colones por dólar):</label><input id="obFx" type="number" value="' + (p.fxRate || 502) + '">' +
-      '<p class="mut sm">Se usa para convertir movimientos o ingresos en la otra moneda.</p>'
-    }
-  ];
-  // Ediciones personalizadas: paso extra para cargar historial ya categorizado.
-  if (HIST) steps.splice(4, 0, { title: 'Cargá tu historial', body: histStepBody() });
-  var all = steps.concat(opt);
-  var s = all[OB.step];
+  if (OB.step >= steps.length) OB.step = steps.length - 1;
+  var s = steps[OB.step], last = OB.step === steps.length - 1;
   $('screen').innerHTML =
-    '<div class="onb">' +
-    '<div class="onb-progress">' + all.map(function (_, i) { return '<span class="' + (i <= OB.step ? 'on' : '') + '"></span>'; }).join('') + '</div>' +
-    '<h2>' + s.title + '</h2>' +
+    '<div class="onb">' + onbHead(2, s.title, 'Pregunta ' + (OB.step + 1) + ' de ' + steps.length) +
     '<div class="onb-body">' + s.body + '</div>' +
     '<div class="onb-nav">' +
     (OB.step > 0 ? '<button class="btn" id="obBack">Atrás</button>' : '<span></span>') +
-    (OB.step < steps.length - 1 ? '<button class="btn primary" id="obNext">Siguiente</button>' :
-      OB.step === steps.length - 1 ? '<button class="btn primary" id="obNext">Casi listo →</button>' :
-      '<button class="btn primary" id="obDone">Ver mi tablero</button>') +
+    (last ? '<button class="btn primary" id="obDone">Listo: subir mi estado de cuenta →</button>' : '<button class="btn primary" id="obNext">Siguiente</button>') +
     '</div></div>';
+  if ($('obName')) $('obName').focus();
   wireSeg('obCur'); wireSeg('obIncCur');
-  if ($('obHist')) $('obHist').onchange = function (ev) { onHistFile(ev, function () { renderOnboarding(); }); };
+  if ($('obShare')) $('obShare').onchange = function () { $('obShareRow').hidden = !this.checked; if (this.checked) $('obShareWith').focus(); };
   if ($('obIncCur') || $('obInc')) {
     var updIncHint = function () {
       var el = $('obIncHint'); if (!el) return;
       var base = DB.profile.currency, ic = segVal('obIncCur') || base, amt = +($('obInc') ? $('obInc').value : 0) || 0;
+      if ($('obFxRow')) $('obFxRow').hidden = !(base === 'USD' || ic === 'USD');
       // Si escribió un monto, damos por hecho que sí lo quiere registrar (destilda "prefiero no ponerlo").
       if (amt && $('obIncUnknown') && $('obIncUnknown').checked) $('obIncUnknown').checked = false;
       if (!amt || ic === base) { el.textContent = ''; return; }
@@ -2460,9 +2774,11 @@ function renderOnboarding() {
     var icw = $('obIncCur'); if (icw) icw.querySelectorAll('button').forEach(function (b) { var prev = b.onclick; b.onclick = function () { if (prev) prev.call(b); updIncHint(); }; });
     updIncHint();
   }
+  var enter = function (e) { if (e.key === 'Enter') { e.preventDefault(); ($('obNext') || $('obDone')).click(); } };
+  $('screen').querySelectorAll('.onb input').forEach(function (inp) { if (inp.type !== 'checkbox') inp.onkeydown = enter; });
   if ($('obBack')) $('obBack').onclick = function () { saveStep(); OB.step--; renderOnboarding(); };
   if ($('obNext')) $('obNext').onclick = function () { saveStep(); OB.step++; renderOnboarding(); };
-  if ($('obDone')) $('obDone').onclick = function () { saveStep(); DB.profile.onboarded = true; persist(); renderDash(); };
+  if ($('obDone')) $('obDone').onclick = function () { saveStep(); DB.profile.onboarded = true; TAB = 'resumen'; persist(); renderDash(); };
 }
 function segBtn(val, label, cur) { return '<button data-v="' + val + '" class="' + (cur === val ? 'on' : '') + '">' + label + '</button>'; }
 function wireSeg(id) { var w = $(id); if (!w) return; w.querySelectorAll('button').forEach(function (b) { b.onclick = function () { w.querySelectorAll('button').forEach(function (x) { x.classList.remove('on'); }); b.classList.add('on'); }; }); }
@@ -2475,6 +2791,7 @@ function saveStep() {
   if (segVal('obIncCur')) p.incomeCurrency = segVal('obIncCur');
   if ($('obSav')) { p.savingsMode = 'pct'; p.savingsValue = Math.min(100, Math.max(0, num($('obSav').value, 20))); }
   if ($('obShare')) p.shareExpenses = $('obShare').checked;
+  if ($('obShareWith')) p.shareWith = $('obShareWith').value.trim();
   if ($('obFx')) p.fxRate = num($('obFx').value, 0) > 0 ? num($('obFx').value, 502) : 502;
 }
 
@@ -2482,22 +2799,25 @@ function saveStep() {
 function renderDash() {
   var months = S.months(DB);
   if (TAB === 'comp' && !DB.profile.shareExpenses) TAB = 'resumen';
+  // Sin movimientos todavía: sólo la guía del paso 3, sin pestañas vacías que confundan.
+  var fresh = !DB.ledger.length;
+  if (fresh && TAB !== 'ajustes') TAB = 'resumen';
   if (months.indexOf(MK) < 0) MK = months.length ? months[months.length - 1] : S.monthKey(E.fmtISO(new Date()));
   $('screen').innerHTML =
     '<header class="topbar">' +
     '<div class="brand">Presupuesto · <span class="mut">' + esc(DB.profile.name || 'Mi dinero') + '</span></div>' +
     '<div class="top-actions">' +
-    '<label class="btn sm">Importar<input type="file" id="inFiles" accept=".pdf,.csv,.txt,.xls,.xlsx,.html" multiple hidden></label>' +
+    '<label class="btn sm">Subir estado de cuenta<input type="file" id="inFiles" accept=".pdf,.csv,.txt,.xls,.xlsx,.html" multiple hidden></label>' +
     (canUndo() ? '<button class="btn sm" id="btnUndo" title="Quita lo que entró en la última importación">Deshacer importación</button>' : '') +
     '<button class="btn sm" id="btnBackup">Respaldo</button>' +
     '<button class="btn sm" id="btnPrint">PDF</button>' +
     '<span class="save-state" id="saveState"></span>' +
     '</div></header>' +
-    '<nav class="tabs">' +
+    (fresh ? '' : '<nav class="tabs">' +
     tab('resumen', 'Resumen') + tab('movs', 'Movimientos') + tab('recur', 'Recurrentes') + tab('tend', 'Tendencias') +
     (DB.profile.shareExpenses ? tab('comp', 'Compartidos') : '') +
     tab('metas', 'Metas') + tab('presu', 'Presupuesto') + tab('cuadre', 'Cuadre') + tab('ajustes', 'Ajustes') +
-    '</nav>' +
+    '</nav>') +
     '<div class="monthbar" id="monthbar"></div>' +
     '<main id="tabbody"></main>' +
     '<footer class="disc">' + DISCLAIMER + '</footer>';
@@ -2513,7 +2833,7 @@ function renderDash() {
 function tab(id, label) { return '<button data-t="' + id + '" class="' + (TAB === id ? 'on' : '') + '">' + label + '</button>'; }
 function renderMonthbar() {
   var months = S.months(DB); var mb = $('monthbar'); if (!mb) return;
-  if (!months.length) { mb.innerHTML = '<span class="mut">Importá un estado de cuenta para empezar.</span>'; return; }
+  if (!months.length) { mb.innerHTML = ''; return; }
   mb.innerHTML = months.map(function (m) { return '<button data-m="' + m + '" class="' + (m === MK ? 'on' : '') + '">' + S.monthLabel(m) + '</button>'; }).join('');
   mb.querySelectorAll('button').forEach(function (b) { b.onclick = function () { MK = b.getAttribute('data-m'); renderTab(); mb.querySelectorAll('button').forEach(function (x) { x.classList.remove('on'); }); b.classList.add('on'); }; });
 }
@@ -2571,8 +2891,32 @@ function renderResumen(b) {
 }
 function card(label, val, kind) { return '<div class="kpi ' + kind + '"><div class="kpi-l">' + label + '</div><div class="kpi-v">' + val + '</div></div>'; }
 function panel(title, inner) { return '<div class="panel"><h4>' + esc(title) + '</h4>' + inner + '</div>'; }
-function emptyState() { return '<div class="empty"><h3>Todavía no hay movimientos</h3><p class="mut">Importá el estado de cuenta de tu banco (BCR o BAC — PDF o CSV) y armo tu tablero. Cruzo cada archivo contra el total impreso del banco para no perder ni inventar nada.</p><label class="btn primary">Importar archivo<input type="file" id="inEmpty" accept=".pdf,.csv,.txt,.xls,.xlsx,.html" multiple hidden></label></div>'; }
-function wireEmpty() { if ($('inEmpty')) $('inEmpty').onchange = onImport; }
+// Tablero vacío = paso 3 del arranque: qué archivo bajar de cada banco + el
+// historial en Excel como tarjeta OPCIONAL aparte (solo para quien ya lo llevaba).
+function emptyState() {
+  return '<div class="onb guide">' + onbHead(3, 'Subí tu estado de cuenta') +
+    '<p>Bajá de la página de tu banco los movimientos y subilos acá. Podés subir <b>varios archivos y varios meses a la vez</b> (por ejemplo, de julio a hoy).</p>' +
+    '<div class="bank-tips">' +
+    '<div><b>BCR</b><span>El PDF de movimientos de tu tarjeta y/o el Excel (.xls) de movimientos de tu cuenta.</span></div>' +
+    '<div><b>BAC</b><span>El CSV o el PDF de "Transacciones del mes".</span></div>' +
+    '<div><b>Otro banco</b><span>Un archivo CSV. La primera vez te pregunto qué columna es cada cosa.</span></div></div>' +
+    '<label class="btn primary big">Subir estados de cuenta<input type="file" id="inEmpty" accept=".pdf,.csv,.txt,.xls,.xlsx,.html" multiple hidden></label>' +
+    '<p class="mut sm">Reviso cada archivo contra el total que imprime el banco, para no perder ni inventar nada.</p>' +
+    '<div class="conf-box">⭐ Guardá esta página en favoritos (⌘D en Mac, Ctrl+D en Windows) para volver cada mes.</div>' +
+    '</div>' + histCard();
+}
+function wireEmpty() { if ($('inEmpty')) $('inEmpty').onchange = onImport; wireHistInputs(); }
+// Tarjeta del historial: dice CLARO que es opcional y para quién es.
+function histCard(inSettings) {
+  return (inSettings ? '' : '<div class="opt-card">') +
+    '<div class="opt-tag">Opcional</div>' +
+    '<h4>¿Ya llevabas tus gastos en Excel?</h4>' +
+    '<p class="mut">Solo si ya tenés un archivo donde anotabas tus transacciones <b>con su categoría</b> (por ejemplo, un Excel por mes). Si no, ignorá esto: no hace falta para usar el presupuesto.</p>' +
+    '<p class="mut sm">Necesito columnas de <b>fecha</b>, <b>categoría</b> y <b>monto</b> en colones (la descripción ayuda). Podés subir varios archivos a la vez y busco sola la hoja correcta. Respeto tus categorías y aprendo cómo categorizás cada comercio, para que tus próximos estados de cuenta salgan categorizados.</p>' +
+    '<label class="btn">Cargar mi Excel<input type="file" class="histInput" accept=".xlsx,.xlsm,.csv,.txt,.xls" multiple hidden></label>' +
+    (inSettings ? '' : '</div>');
+}
+function wireHistInputs() { document.querySelectorAll('.histInput').forEach(function (inp) { inp.onchange = function (ev) { onHistFiles(ev, function () { MK = S.latestMonth(DB); renderDash(); }); }; }); }
 
 /* ------------------------------------------------------------ movimientos --*/
 var MOVF = { cat: 'all', q: '' };   // filtro de Movimientos (se mantiene al cambiar de mes)
@@ -3006,7 +3350,7 @@ function renderAjustes(b) {
     '<p class="mut sm">Con gastos compartidos activado, en Movimientos marcás cuáles son compartidos y el Resumen te dice cuánto te deben.</p>' +
     '<button class="btn primary sm" id="stSave">Guardar cambios</button></section>' +
     '<section><h3>Categorías</h3><p class="mut sm">En cada gasto elegí si es <b>necesidad</b> o <b>gusto</b>: así se calcula el 50/30/20.</p><div id="catEditor"></div></section>' +
-    (HIST ? '<section><h3>Historial (CSV)</h3><p class="mut sm">Cargá un CSV con tus transacciones ya categorizadas (guardá tu tab de Excel como CSV). Respeto tus categorías y no duplico lo que ya esté cargado.</p><label class="btn sm">Cargar historial<input type="file" id="stHist" accept=".csv,.txt" hidden></label></section>' : '') +
+    (HIST ? '<section><h3>Historial en Excel</h3>' + histCard(true) + '</section>' : '') +
     '<section><h3>Exportar a Excel</h3><p class="mut sm">Archivos CSV para Excel en español (separador punto y coma, decimales con coma). El formato del asesor trae las columnas de la hoja "Mis Ingresos, ahorros gastos" para copiar y pegar; las categorías van con los nombres de esta app.</p>' +
     row('Período', '<select id="stExpMk"><option value="">Todos los meses</option>' + S.months(DB).slice().reverse().map(function (m) { return '<option value="' + m + '"' + (m === MK ? ' selected' : '') + '>' + S.monthLabel(m) + '</option>'; }).join('') + '</select>') +
     '<div class="btn-row"><button class="btn sm" id="stExpTx">Movimientos</button><button class="btn sm" id="stExpAdv">Formato del asesor</button><button class="btn sm" id="stExpCat">Resumen por categoría</button></div></section>' +
@@ -3023,7 +3367,7 @@ function renderAjustes(b) {
     p.shareExpenses = $('stShare').checked; p.shareWith = $('stShareWith').value.trim(); p.sharePct = Math.min(100, Math.max(0, num($('stSharePct').value, 50)));
     persist(); toast('Cambios guardados'); renderDash();
   };
-  if ($('stHist')) $('stHist').onchange = function (ev) { onHistFile(ev, function () { renderDash(); }); };
+  wireHistInputs();
   $('stBackup').onclick = downloadBackup;
   var X = window.FinExport, expMk = function () { return $('stExpMk').value || null; };
   $('stExpTx').onclick = function () { downloadText(X.fileName('movimientos', expMk()), X.transactionsCSV(DB, expMk())); };
@@ -3103,60 +3447,50 @@ function openMapper(scan, allScans) {
 }
 
 /* ============================================ carga de HISTORIAL (Excel) ====*/
-// Solo en ediciones personalizadas. Lee el Excel/CSV del usuario, respeta sus
-// categorías (creando las que falten) y precarga todo en su archivo.
-function histStepBody() {
-  var n = DB.ledger.length;
-  if (n) {
-    return '<div class="ok-box">✓ ' + n + ' transacciones cargadas de tu historial.</div>' +
-      '<p class="mut">Si te falta algún mes, podés cargar otro archivo.</p>' +
-      '<label class="btn">Cargar otro archivo<input type="file" id="obHist" accept=".csv,.txt" hidden></label>';
-  }
-  return '<p class="mut sm" style="margin-top:-14px;margin-bottom:14px">Opcional</p>' +
-    '<p class="mut">¿Registraste tus finanzas en el pasado? Podés incluirlas acá importando un <b>CSV</b> con estas columnas:</p>' +
-    '<ul class="mut" style="margin:6px 0 12px;padding-left:22px">' +
-    '<li>Fecha de transacción</li><li>Descripción</li><li>Categoría</li><li>Monto</li></ul>' +
-    '<p class="mut">El sistema crea tus categorías, <b>aprende cómo categorizás cada comercio</b> (así tus próximos estados de cuenta salen categorizados solos) y deja todo guardado en tu dashboard. Asegurate de que los montos vayan en <b>colones</b>.</p>' +
-    '<label class="btn primary">Seleccionar mi CSV<input type="file" id="obHist" accept=".csv,.txt" hidden></label>' +
-    '<p class="mut sm" style="margin-top:10px">Si preferís, saltá este paso y empezá importando tu estado de cuenta del banco.</p>';
+// Opcional: para quien ya llevaba sus gastos categorizados en Excel/CSV. Acepta
+// varios archivos a la vez (ej. un Excel por mes), busca sola la hoja con Fecha +
+// Categoría + Monto, respeta las categorías y aprende comercio → categoría.
+// file[] → Promise<[{file, tables, records, ignored, error?, csvRows?}]>
+function readHistFiles(files) {
+  return Promise.all(files.map(function (f) {
+    var low = f.name.toLowerCase();
+    if (/\.xls$/.test(low)) return Promise.resolve({ file: f.name, records: [], error: 'es un Excel viejo (.xls). Abrilo en Excel y guardalo como .xlsx.' });
+    if (/\.(xlsx|xlsm)$/.test(low)) {
+      return f.arrayBuffer().then(function (buf) { return window.FinXlsx.readXlsx(buf, window.FinXlsx.inflate); })
+        .then(function (wb) { var r = H.fromWorkbook(wb.sheets, f.name); r.file = f.name; return r; })
+        .catch(function (e) { return { file: f.name, records: [], error: e.message || String(e) }; });
+    }
+    return f.text().then(function (text) {
+      var sn = P.sniffCSV(text);
+      var rows = [sn.header].concat(sn.lines.slice(1).map(function (l) { return P.csvSplit(l, sn.sep); }));
+      var r = H.fromWorkbook([{ name: 'CSV', rows: rows }], f.name); r.file = f.name; r.csvRows = rows; return r;
+    });
+  }));
 }
-// file -> { headers:[], rows:[[]] }. Historial = CSV (comillas y comas internas
-// soportadas vía P.csvSplit). Si suben el .xlsx directo, guiamos a exportar CSV.
-function readHistFile(file) {
-  var low = file.name.toLowerCase();
-  if (/\.(xlsx?|xlsm)$/.test(low)) {
-    return Promise.reject(new Error('Subí el CSV, no el Excel: en Excel andá a Archivo → Guardar como → CSV y subí ese archivo.'));
-  }
-  return file.text().then(function (text) {
-    var sn = P.sniffCSV(text);
-    return { headers: sn.header, rows: sn.lines.slice(1).map(function (l) { return P.csvSplit(l, sn.sep); }) };
-  });
+function histWhyBad(r) {
+  if (r.error) return r.error;
+  return 'no encontré una hoja con columnas de Fecha, Categoría y Monto' + (r.ignored && r.ignored.length ? ' (revisé: ' + r.ignored.join(', ') + ')' : '');
 }
-function onHistFile(ev, done) {
-  var file = ev.target.files && ev.target.files[0]; if (!file) return;
-  ev.target.value = '';
-  toast('Leyendo ' + file.name + '…');
-  readHistFile(file).then(function (parsed) {
-    var map = H.detectColumns(parsed.headers);
-    if (map.fecha < 0 || map.monto < 0 || map.cat < 0) return openHistMapper(file, parsed, map, done);
-    proceedHist(file, parsed, map, done);
+function onHistFiles(ev, done) {
+  var files = Array.prototype.slice.call(ev.target.files || []); ev.target.value = '';
+  if (!files.length) return;
+  toast('Leyendo ' + files.length + ' archivo(s)…');
+  readHistFiles(files).then(function (res) {
+    var good = res.filter(function (r) { return !r.error && r.records && r.records.length; });
+    var bad = res.filter(function (r) { return !(!r.error && r.records && r.records.length); });
+    // Un solo CSV cuyos encabezados no reconozco → preguntar qué columna es cada cosa.
+    if (!good.length && res.length === 1 && res[0].csvRows) return openHistMapper(res[0], done);
+    if (!good.length) { toast(bad.map(function (r) { return r.file + ': ' + histWhyBad(r); }).join(' · '), 'err'); return; }
+    openHistConfirm(good, bad, done);
   }).catch(function (e) { toast('No pude leer el archivo: ' + (e.message || e), 'err'); });
 }
-function histRecords(parsed, map) {
-  return parsed.rows.map(function (r) {
-    return { fecha: r[map.fecha], desc: map.desc >= 0 ? r[map.desc] : '', cat: r[map.cat], monto: r[map.monto] };
-  }).filter(function (x) { return (x.fecha !== '' && x.fecha != null) || (x.monto !== '' && x.monto != null) || (x.cat !== '' && x.cat != null); });
-}
-function proceedHist(file, parsed, map, done) {
-  var records = histRecords(parsed, map);
-  if (!records.length) { toast('El archivo no tiene filas de datos.', 'err'); return; }
-  openHistConfirm(records, file.name, done);
-}
-// Mapeo manual si no reconozco las columnas por encabezado.
-function openHistMapper(file, parsed, guess, done) {
-  var opts = function (sel) { return parsed.headers.map(function (h, i) { return '<option value="' + i + '"' + (guess[sel] === i ? ' selected' : '') + '>' + esc(h || ('Columna ' + (i + 1))) + '</option>'; }).join(''); };
+// Mapeo manual (solo CSV sin encabezados reconocibles).
+function openHistMapper(r, done) {
+  var headers = (r.csvRows[0] || []).map(function (h) { return String(h == null ? '' : h); });
+  var guess = H.detectColumns(headers);
+  var opts = function (sel) { return headers.map(function (h, i) { return '<option value="' + i + '"' + (guess[sel] === i ? ' selected' : '') + '>' + esc(h || ('Columna ' + (i + 1))) + '</option>'; }).join(''); };
   var m = el('<div class="modal"><div class="modal-card"><h3>¿Cuál columna es cuál?</h3>' +
-    '<p class="mut">No reconocí los encabezados de <b>' + esc(file.name) + '</b>. Indicame las columnas y sigo.</p>' +
+    '<p class="mut">No reconocí los encabezados de <b>' + esc(r.file) + '</b>. Indicame las columnas y sigo.</p>' +
     '<div class="frow"><label>Fecha</label><select id="hmDate">' + opts('fecha') + '</select></div>' +
     '<div class="frow"><label>Descripción</label><select id="hmDesc"><option value="-1">(ninguna)</option>' + opts('desc') + '</select></div>' +
     '<div class="frow"><label>Categoría</label><select id="hmCat">' + opts('cat') + '</select></div>' +
@@ -3167,35 +3501,85 @@ function openHistMapper(file, parsed, guess, done) {
   $('hmCancel').onclick = function () { m.remove(); };
   $('hmOk').onclick = function () {
     var map = { fecha: +$('hmDate').value, desc: +$('hmDesc').value, cat: +$('hmCat').value, monto: +$('hmAmt').value };
-    m.remove(); proceedHist(file, parsed, map, done);
+    var recs = H.recordsFrom(r.csvRows, map, 1, r.file);
+    m.remove();
+    if (!recs.length) { toast('El archivo no tiene filas de datos.', 'err'); return; }
+    openHistConfirm([{ file: r.file, tables: [{ sheet: 'CSV', headerRow: 1, count: recs.length }], records: recs }], [], done);
   };
 }
-// Confirmación: preview de totales, categorías nuevas (con tipo editable) y filas ilegibles.
-function openHistConfirm(records, name, done) {
-  var res = H.analyze(DB, records, { name: name });
+// Confirmación: qué encontré en cada archivo, totales, categorías nuevas (con tipo
+// editable), filas ilegibles y archivos que no pude usar. Nada se carga sin confirmar.
+function openHistConfirm(good, bad, done, st) {
+  var records = [].concat.apply([], good.map(function (g) { return g.records; }));
+  var names = good.map(function (g) { return g.file; });
+  // Fechas sin año ("15/01", plantilla del asesor): el año lo elige la persona, con sugerencia.
+  st = st || {};
+  var yinfo = H.yearlessInfo(records), years = st.years || {};
+  for (var yf in yinfo) if (!years[yf]) years[yf] = yinfo[yf].suggested;
+  var fill = st.fill || {}, fillAuto = st.fillAuto || {};   // fillAuto: fechas propuestas (no escritas por la persona)
+  var res = H.analyze(DB, records, { years: years, overrides: st.overrides, fillDates: fill });
+  // Primera vez: a las filas sin fecha se les propone la última fecha de su archivo.
+  var auto = false;
+  for (var uf in res.undated) if (!(uf in fill) && res.undated[uf].suggest) { fill[uf] = res.undated[uf].suggest; fillAuto[uf] = 1; auto = true; }
+  if (auto) res = H.analyze(DB, records, { years: years, overrides: st.overrides, fillDates: fill });
+  var thisYear = new Date().getFullYear();
+  var yearBox = Object.keys(yinfo).length ? '<div class="conf-box"><b>¿De qué año son estas fechas?</b> ' +
+    '<span class="mut sm">Algunas fechas no traen año (ej. ' + esc((records.filter(function (r) { return H.isYearless(r.fecha); })[0] || {}).fecha || '15/01') + '). Revisá el año de cada archivo:</span>' +
+    Object.keys(yinfo).map(function (f) {
+      var opts = ''; for (var y = thisYear; y >= thisYear - 6; y--) opts += '<option' + (+years[f] === y ? ' selected' : '') + '>' + y + '</option>';
+      return '<div class="frow"><label title="' + esc(f) + '">' + esc(f) + '</label><select class="yearSel" data-yfile="' + esc(f) + '" style="width:auto">' + opts + '</select>' +
+        (yinfo[f].crossesNewYear ? '<span class="mut sm">cruza de dic. a ene.: elegí el año de enero</span>' : '') + '</div>';
+    }).join('') + '</div>' : '';
+  var undBox = Object.keys(res.undated || {}).length ? '<div class="conf-box"><b>Filas sin fecha</b> <span class="mut sm">Cada archivo es un mes: les pongo esta fecha para que cuenten en ese mes. Cambiala si querés.</span>' +
+    Object.keys(res.undated).map(function (f) {
+      return '<div class="frow"><label title="' + esc(f) + '">' + esc(f) + ' · ' + res.undated[f].count + ' fila(s)</label><input type="date" class="fillSel" data-ffile="' + esc(f) + '" value="' + esc(fill[f] || '') + '" style="width:auto"></div>';
+    }).join('') + '</div>' : '';
+  var swapBox = res.swapped ? '<p class="mut sm">Corregí ' + res.swapped + ' fecha(s) que Excel había leído con el día y el mes al revés (ej. 3/02 guardado como 2 de marzo), para que calcen con el resto de su archivo.</p>' : '';
+  var mergedBox = (res.merged || []).length ? '<p class="mut sm">Se juntan con categorías que ya existen: ' +
+    res.merged.map(function (x) { return '«' + esc(x.from) + '» → <b>' + esc(x.to) + '</b>'; }).join(' · ') + '</p>' : '';
+  var files = good.map(function (g) {
+    return '<li><b>' + esc(g.file) + '</b> — ' + g.tables.map(function (t) { return (t.sheet === 'CSV' ? '' : 'hoja «' + esc(t.sheet) + '»: ') + t.count + ' fila(s)'; }).join(', ') + '</li>';
+  }).join('');
   var newRows = res.newCats.map(function (c) {
     return '<div class="cat-line"><span style="flex:1">' + esc(c.name) + '</span>' +
       '<div class="seg" data-norm="' + esc(c.norm) + '" style="max-width:190px">' +
       '<button data-v="gasto" class="' + (c.kind === 'gasto' ? 'on' : '') + '">Gasto</button>' +
       '<button data-v="ingreso" class="' + (c.kind === 'ingreso' ? 'on' : '') + '">Ingreso</button></div></div>';
   }).join('');
-  var warn = res.counts.skipped ? '<div class="warn-box">' + res.counts.skipped + ' fila(s) no se pudieron leer (fecha o monto ilegible) y quedan fuera. No se descartó nada en silencio: revisá esas filas en tu Excel si querés incluirlas.</div>' : '';
+  var skip = res.counts.skipped ? '<div class="warn-box">' + res.counts.skipped + ' fila(s) no se pudieron leer y quedan fuera (no se descarta nada en silencio):<br>' +
+    res.skipped.slice(0, 6).map(function (x) { return esc(x.where + ': ' + x.why); }).join('<br>') + (res.skipped.length > 6 ? '<br>…' : '') + '</div>' : '';
+  var badBox = bad.length ? '<div class="warn-box">No pude usar:<br>' + bad.map(function (r) { return '<b>' + esc(r.file) + '</b>: ' + esc(histWhyBad(r)); }).join('<br>') + '</div>' : '';
   var m = el('<div class="modal"><div class="modal-card"><h3>Revisá tu historial</h3>' +
+    '<ul class="mut sm tight">' + files + '</ul>' +
+    yearBox + undBox +
     '<p><b>' + res.counts.parsed + '</b> transacciones listas · Ingresos ' + money(res.counts.in) + ' · Gastos ' + money(res.counts.out) + (res.counts.save ? ' · Ahorro ' + money(res.counts.save) : '') + '</p>' +
-    warn +
+    skip + badBox + swapBox + mergedBox +
     (res.newCats.length ? '<h4 style="margin-top:12px">Categorías nuevas a crear (' + res.newCats.length + ')</h4><p class="mut sm">Marcá si cada una es gasto o ingreso. Quedan guardadas para tu uso futuro.</p>' + newRows : '<p class="mut">Todas tus categorías ya existen en el sistema.</p>') +
     '<div class="btn-row"><button class="btn" id="hcCancel">Cancelar</button><button class="btn primary" id="hcOk">Cargar ' + res.counts.parsed + ' transacciones</button></div>' +
     '</div></div>');
   document.body.appendChild(m);
   m.querySelectorAll('.seg').forEach(function (w) { wireSegEl(w); });
+  var readOverrides = function () {
+    var o = {};
+    m.querySelectorAll('.seg').forEach(function (w) { var on = w.querySelector('button.on'); if (on) o[w.getAttribute('data-norm')] = on.getAttribute('data-v'); });
+    return o;
+  };
+  // Cambiar el año recalcula todo (cuántas filas entran, totales) sin perder lo elegido.
+  m.querySelectorAll('.yearSel').forEach(function (sel) {
+    sel.onchange = function () {
+      var f = sel.getAttribute('data-yfile'); years[f] = +sel.value;
+      if (fillAuto[f]) { delete fill[f]; delete fillAuto[f]; }   // la fecha propuesta se recalcula con el año nuevo
+      var o = readOverrides(); m.remove(); openHistConfirm(good, bad, done, { years: years, overrides: o, fill: fill, fillAuto: fillAuto });
+    };
+  });
+  m.querySelectorAll('.fillSel').forEach(function (inp) {
+    inp.onchange = function () { var f = inp.getAttribute('data-ffile'); fill[f] = inp.value; delete fillAuto[f]; var o = readOverrides(); m.remove(); openHistConfirm(good, bad, done, { years: years, overrides: o, fill: fill, fillAuto: fillAuto }); };
+  });
   $('hcCancel').onclick = function () { m.remove(); };
   $('hcOk').onclick = function () {
-    var overrides = {};
-    m.querySelectorAll('.seg').forEach(function (w) {
-      var on = w.querySelector('button.on'); if (on) overrides[w.getAttribute('data-norm')] = on.getAttribute('data-v');
-    });
-    var finalRes = H.analyze(DB, records, { name: name, overrides: overrides });
-    var r = withUndo([name], function () { return H.apply(DB, finalRes); });
+    var overrides = readOverrides();
+    var finalRes = H.analyze(DB, records, { years: years, overrides: overrides, fillDates: fill });
+    var r = withUndo(names, function () { return H.apply(DB, finalRes); });
     persist();
     m.remove();
     toast(r.added + ' transacciones cargadas' + (finalRes.counts.skipped ? ' · ' + finalRes.counts.skipped + ' omitidas' : '') +
