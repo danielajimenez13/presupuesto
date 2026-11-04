@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Finanzas Personales</title>
+<title>Presupuesto</title>
 <style>
 :root{
   --bg:#070d1c; --ink:#e8eefc; --mut:#8ea3c7;
@@ -1556,13 +1556,13 @@ function suggestName(db) {
 function createNew(db) {
   return window.showSaveFilePicker({
     suggestedName: suggestName(db),
-    types: [{ description: 'Datos de Finanzas', accept: { 'application/json': [EXT, '.json'] } }]
+    types: [{ description: 'Datos de Presupuesto', accept: { 'application/json': [EXT, '.json'] } }]
   }).then(function (h) { handle = h; rememberHandle(h); return writeHandle(h, db).then(function () { return h; }); });
 }
 // Abrir un archivo existente. Devuelve {db, handle}.
 function openExisting() {
   return window.showOpenFilePicker({
-    types: [{ description: 'Datos de Finanzas', accept: { 'application/json': [EXT, '.json'] } }],
+    types: [{ description: 'Datos de Presupuesto', accept: { 'application/json': [EXT, '.json'] } }],
     multiple: false
   }).then(function (list) {
     handle = list[0];
@@ -2194,7 +2194,7 @@ function categoryCSV(db, n) {
   return toCSV(out);
 }
 
-function fileName(kind, mk) { return 'finanzas-' + kind + '-' + (mk || 'todo') + '.csv'; }
+function fileName(kind, mk) { return 'presupuesto-' + kind + '-' + (mk || 'todo') + '.csv'; }
 
 var exp = { SEP: SEP, cell: cell, num: num, toCSV: toCSV, transactionsCSV: transactionsCSV, advisorCSV: advisorCSV,
             categoryCSV: categoryCSV, fileName: fileName };
@@ -2276,7 +2276,7 @@ function boot() {
 function showWelcome() {
   $('screen').innerHTML =
     '<div class="welcome">' +
-    '<h1>Finanzas Personales</h1>' +
+    '<h1>Presupuesto</h1>' +
     (ST.hasFSA ? '' : '<div class="warn-box">Tu navegador no permite guardar directo al archivo. Vas a poder <b>descargar y subir</b> tu archivo de respaldo (funciona igual, con un paso extra). Para auto-guardado usá Chrome o Edge.</div>') +
     '<div class="welcome-actions">' +
     '<button class="btn primary" id="wNew">Empezar de cero</button>' +
@@ -2439,7 +2439,7 @@ function renderDash() {
   if (months.indexOf(MK) < 0) MK = months.length ? months[months.length - 1] : S.monthKey(E.fmtISO(new Date()));
   $('screen').innerHTML =
     '<header class="topbar">' +
-    '<div class="brand">Finanzas · <span class="mut">' + esc(DB.profile.name || 'Mi dinero') + '</span></div>' +
+    '<div class="brand">Presupuesto · <span class="mut">' + esc(DB.profile.name || 'Mi dinero') + '</span></div>' +
     '<div class="top-actions">' +
     '<label class="btn sm">Importar<input type="file" id="inFiles" accept=".pdf,.csv,.txt,.xls,.xlsx,.html" multiple hidden></label>' +
     (canUndo() ? '<button class="btn sm" id="btnUndo" title="Quita lo que entró en la última importación">Deshacer importación</button>' : '') +
